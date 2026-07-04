@@ -745,23 +745,11 @@ async function scanForDuplicates() {
 function findDuplicateGroups() {
   const items = allQuotes;
   const n = items.length;
-  // Precompute normalized text, char-bigram counts, and word sets once each.
+  // Normalize once, then score every pair with the SAME similarityScore() the
+  // on-add check uses — so the two features flag identically.
   const norm = new Array(n);
-  const gmap = new Array(n);
-  const gtot = new Array(n);
-  const wset = new Array(n);
-  for (let i = 0; i < n; i++) {
-    const s = normalizeText(items[i].text);
-    norm[i] = s;
-    const m = new Map();
-    for (let k = 0; k < s.length - 1; k++) {
-      const g = s.slice(k, k + 2);
-      m.set(g, (m.get(g) || 0) + 1);
-    }
-    gmap[i] = m;
-    gtot[i] = s.length > 1 ? s.length - 1 : 0;
-    wset[i] = new Set(s ? s.split(" ") : []);
-  }
+  for (let i = 0; i < n; i++) norm[i] = normalizeText(items[i].text);
+
   // Union-Find to cluster transitively-similar entries.
   const parent = new Array(n);
   for (let i = 0; i < n; i++) parent[i] = i;
@@ -770,22 +758,10 @@ function findDuplicateGroups() {
     return x;
   };
   for (let i = 0; i < n; i++) {
-    const si = norm[i];
-    if (!si) continue;
+    if (!norm[i]) continue;
     for (let j = i + 1; j < n; j++) {
-      const sj = norm[j];
-      if (!sj) continue;
-      const li = si.length, lj = sj.length;
-      if (Math.min(li, lj) / Math.max(li, lj) < 0.5) continue; // too different in length
-      let score;
-      if (si === sj) score = 1;
-      else if (li > 10 && lj > 10 && (si.includes(sj) || sj.includes(si))) score = 0.95;
-      else {
-        const dice = diceFromMaps(gmap[i], gtot[i], gmap[j], gtot[j]);
-        const jac = jaccardFromSets(wset[i], wset[j]);
-        score = dice > jac ? dice : jac;
-      }
-      if (score >= SIMILAR_THRESHOLD) {
+      if (!norm[j]) continue;
+      if (similarityScore(norm[i], norm[j]) >= SIMILAR_THRESHOLD) {
         const ri = find(i), rj = find(j);
         if (ri !== rj) parent[ri] = rj;
       }
@@ -802,25 +778,6 @@ function findDuplicateGroups() {
   for (const arr of byRoot.values()) if (arr.length >= 2) groups.push(arr);
   groups.sort((a, b) => b.length - a.length);
   return groups;
-}
-
-function diceFromMaps(A, aTot, B, bTot) {
-  if (!aTot || !bTot) return 0;
-  const [S, L] = A.size < B.size ? [A, B] : [B, A];
-  let inter = 0;
-  for (const [g, c] of S) {
-    const lc = L.get(g);
-    if (lc) inter += c < lc ? c : lc;
-  }
-  return (2 * inter) / (aTot + bTot);
-}
-
-function jaccardFromSets(a, b) {
-  if (!a.size || !b.size) return 0;
-  let inter = 0;
-  const [S, L] = a.size < b.size ? [a, b] : [b, a];
-  for (const w of S) if (L.has(w)) inter++;
-  return inter / (a.size + b.size - inter);
 }
 
 function openDuplicatesModal(groups) {
