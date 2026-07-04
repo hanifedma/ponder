@@ -1105,7 +1105,9 @@ function renderCard(q) {
   if (embeds.length) {
     const media = document.createElement("div");
     media.className = "media";
-    for (const e of embeds) media.appendChild(buildEmbedFacade(e));
+    for (const e of embeds) {
+      media.appendChild(e.type === "image" ? buildImage(e.src) : buildEmbedFacade(e));
+    }
     card.appendChild(media);
   }
 
@@ -1312,6 +1314,9 @@ function detectEmbeds(text) {
       embed: "https://www.instagram.com/" + kind + "/" + m[2] + "/embed/",
     });
   }
+  // Direct image links (shown inline).
+  const im = /https?:\/\/[^\s]+\.(?:jpe?g|png|gif|webp|avif|bmp|svg)(?:\?[^\s]*)?/gi;
+  while ((m = im.exec(str)) !== null) add({ type: "image", id: m[0], src: m[0], label: "image" });
   return out;
 }
 
@@ -1359,6 +1364,25 @@ function buildEmbedFacade(e) {
     wrap.classList.add("loaded");
   });
   wrap.appendChild(btn);
+  return wrap;
+}
+
+// An inline image from a direct image URL (lazy-loaded; click opens full size).
+function buildImage(src) {
+  const wrap = document.createElement("div");
+  wrap.className = "embed embed-image";
+  const a = document.createElement("a");
+  a.href = src;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  const img = document.createElement("img");
+  img.className = "embed-img";
+  img.loading = "lazy";
+  img.alt = "";
+  img.src = src;
+  img.addEventListener("error", () => wrap.remove()); // hide if the link isn't a real image
+  a.appendChild(img);
+  wrap.appendChild(a);
   return wrap;
 }
 
