@@ -26,6 +26,12 @@
   </script>
 </head>
 <body>
+  <!-- Instant loading state, shown until boot decides which view to render
+       (avoids a blank screen while Firebase auth resolves). -->
+  <div id="bootLoading" class="boot-loading" aria-hidden="true">
+    <span class="boot-mark">❝</span>
+  </div>
+
   <!-- ================= HEADER ================= -->
   <header class="topbar" id="topbar" hidden>
     <div class="topbar-inner">

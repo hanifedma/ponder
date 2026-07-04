@@ -268,6 +268,7 @@ async function maybeMigrateLocal(user) {
 //  View switching
 // ------------------------------------------------------------
 function enterLogin() {
+  hide($("bootLoading"));
   stopStore();
   allQuotes = [];
   filtered = [];
@@ -280,6 +281,7 @@ function enterLogin() {
 }
 
 function enterLocalMode() {
+  hide($("bootLoading"));
   stopStore();
   currentMode = "local";
   currentStore = localStore;
@@ -302,6 +304,7 @@ function enterLocalMode() {
 }
 
 function enterCloudMode(user) {
+  hide($("bootLoading"));
   stopStore();
   currentMode = "cloud";
   currentStore = makeCloudStore(user.uid);
