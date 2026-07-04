@@ -130,6 +130,7 @@
           <option value="asc">Oldest first</option>
           <option value="tag">By tag</option>
         </select>
+        <button id="shuffleBtn" class="btn btn-ghost" type="button">🔀 Shuffle</button>
         <button id="dupBtn" class="btn btn-ghost" type="button">⧉ Find duplicates</button>
         <button id="exportBtn" class="btn btn-ghost" type="button">⬇ Export PDF</button>
       </div>
@@ -152,6 +153,21 @@
       <div id="sentinel" class="sentinel" aria-hidden="true"></div>
     </section>
   </main>
+
+  <!-- ================= SHUFFLE (random, one at a time) ================= -->
+  <div id="shuffleView" class="shuffle" hidden>
+    <div class="shuffle-bar">
+      <select id="shuffleTag" class="input select shuffle-tag" aria-label="Random from tag">
+        <option value="all">All tags</option>
+      </select>
+      <button id="shuffleClose" class="shuffle-close" type="button" aria-label="Close shuffle">✕</button>
+    </div>
+    <div id="shuffleStage" class="shuffle-stage" tabindex="-1"></div>
+    <div class="shuffle-foot">
+      <button id="shuffleNext" class="btn btn-primary" type="button">Next random →</button>
+      <p class="shuffle-hint">Tap the card, press Space / →, or swipe for another</p>
+    </div>
+  </div>
 
   <!-- Toast notifications -->
   <div id="toasts" class="toasts" aria-live="polite"></div>

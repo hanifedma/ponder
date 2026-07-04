@@ -557,6 +557,45 @@ button, input, select, textarea { font-family: inherit; }
 }
 .dup-del:hover { background: var(--surface-3); color: var(--danger); }
 
+/* ---------------- Shuffle (random, one at a time) ---------------- */
+.shuffle {
+  position: fixed; inset: 0; z-index: 90; background: var(--bg);
+  display: flex; flex-direction: column; padding: 16px 16px 22px;
+}
+.shuffle-bar {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; max-width: 720px; margin: 0 auto;
+}
+.shuffle-tag { flex: 0 1 220px; background: var(--surface); border-color: var(--border); }
+.shuffle-close {
+  width: 40px; height: 40px; border-radius: var(--radius-sm); flex: 0 0 auto;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  cursor: pointer; font-size: 15px;
+}
+.shuffle-close:hover { background: var(--surface-3); }
+.shuffle-stage {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 22px 8px; overflow-y: auto; cursor: pointer; outline: none;
+}
+.shuffle-card {
+  max-width: 640px; width: 100%; text-align: center; animation: shuffle-in .2s ease;
+}
+@keyframes shuffle-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.shuffle-text {
+  font-size: clamp(20px, 3.4vw, 30px); line-height: 1.5; margin: 0 0 20px;
+  white-space: pre-wrap; word-break: break-word;
+}
+.shuffle-card .media { max-width: 520px; margin: 0 auto 20px; align-items: center; }
+.shuffle-card .embed-image { align-self: center; }
+.shuffle-meta {
+  display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
+  font-size: 14px; color: var(--muted);
+}
+.shuffle-foot { text-align: center; }
+.shuffle-hint { color: var(--faint); font-size: 12px; margin: 12px 0 0; }
+.shuffle-empty { color: var(--muted); font-size: 17px; text-align: center; }
+@media (prefers-reduced-motion: reduce) { .shuffle-card { animation: none; } }
+
 /* ---------------- Busy overlay (PDF) ---------------- */
 .overlay {
   position: fixed; inset: 0; z-index: 70;

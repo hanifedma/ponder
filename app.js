@@ -76,6 +76,8 @@ let renderCount = PAGE_SIZE; // target number of cards to show
 let domShown = 0; // number of cards currently in the DOM
 let searchTerm = "";
 let sortOrder = "desc"; // "desc" = newest, "asc" = oldest, "tag" = grouped by tag
+let shuffleCurrentId = null; // avoid showing the same random entry twice in a row
+let lastShuffle = 0; // debounce tap+click double fire
 
 const localStore = makeLocalStore(); // the single device-local backend
 
@@ -439,12 +441,18 @@ function wireThemeToggle() {
 // ------------------------------------------------------------
 function populateTagInputs() {
   const addSel = $("quoteTag");
+  const shuffleSel = $("shuffleTag");
   for (const tag of TAGS) {
     const o = document.createElement("option");
     o.value = tag;
     o.textContent = capitalize(tag);
     if (tag === DEFAULT_TAG) o.selected = true;
     addSel.appendChild(o);
+
+    const o2 = document.createElement("option");
+    o2.value = tag;
+    o2.textContent = capitalize(tag);
+    shuffleSel.appendChild(o2);
   }
 }
 
@@ -478,6 +486,27 @@ function wireAppUI() {
 
   $("exportBtn").addEventListener("click", exportPdf);
   $("dupBtn").addEventListener("click", scanForDuplicates);
+
+  // Shuffle (random one-at-a-time) view
+  $("shuffleBtn").addEventListener("click", openShuffle);
+  $("shuffleClose").addEventListener("click", closeShuffle);
+  $("shuffleNext").addEventListener("click", shuffleNext);
+  $("shuffleTag").addEventListener("change", () => {
+    lastShuffle = 0;
+    shuffleCurrentId = null;
+    shuffleNext();
+  });
+  const stage = $("shuffleStage");
+  stage.addEventListener("click", (e) => {
+    if (e.target.closest("a, .embed, button")) return; // let links / media play
+    shuffleNext();
+  });
+  let touchX = 0;
+  stage.addEventListener("touchstart", (e) => { touchX = e.changedTouches[0].clientX; }, { passive: true });
+  stage.addEventListener("touchend", (e) => {
+    if (Math.abs(e.changedTouches[0].clientX - touchX) > 45) shuffleNext();
+  }, { passive: true });
+  document.addEventListener("keydown", onShuffleKey);
 
   $("list").addEventListener("click", (e) => {
     const btn = e.target.closest(".del-btn");
@@ -1249,6 +1278,113 @@ function setBusy(on, text) {
   } else {
     hide(overlay);
   }
+}
+
+// ------------------------------------------------------------
+//  Shuffle (random, one at a time)
+// ------------------------------------------------------------
+function openShuffle() {
+  if (!allQuotes.length) {
+    showToast("Add some entries first.");
+    return;
+  }
+  shuffleCurrentId = null;
+  lastShuffle = 0;
+  show($("shuffleView"));
+  shuffleNext();
+  $("shuffleStage").focus();
+}
+
+function closeShuffle() {
+  hide($("shuffleView"));
+}
+
+function shufflePool() {
+  const t = $("shuffleTag").value;
+  return t === "all" ? allQuotes : allQuotes.filter((q) => q.tag === t);
+}
+
+function shuffleNext() {
+  const now = Date.now();
+  if (now - lastShuffle < 180) return; // avoid tap+click double fire
+  lastShuffle = now;
+  const pool = shufflePool();
+  let q = null;
+  if (pool.length === 1) q = pool[0];
+  else if (pool.length > 1) {
+    do {
+      q = pool[Math.floor(Math.random() * pool.length)];
+    } while (q.id === shuffleCurrentId);
+  }
+  shuffleCurrentId = q ? q.id : null;
+  renderShuffleCard(q);
+}
+
+function onShuffleKey(e) {
+  if ($("shuffleView").hidden) return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeShuffle();
+    return;
+  }
+  if (e.target.closest && e.target.closest("select, input, textarea, button, a")) return;
+  if (e.key === " " || e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "Enter") {
+    e.preventDefault();
+    shuffleNext();
+  }
+}
+
+function renderShuffleCard(q) {
+  const stage = $("shuffleStage");
+  if (!q) {
+    const empty = document.createElement("div");
+    empty.className = "shuffle-empty";
+    empty.textContent = "No entries for this tag yet.";
+    stage.replaceChildren(empty);
+    return;
+  }
+  const card = document.createElement("div");
+  card.className = "shuffle-card";
+
+  const text = document.createElement("p");
+  text.className = "shuffle-text";
+  appendLinkified(text, q.text || "");
+  card.appendChild(text);
+
+  const embeds = detectEmbeds(q.text || "");
+  if (embeds.length) {
+    const media = document.createElement("div");
+    media.className = "media";
+    for (const e of embeds) {
+      media.appendChild(e.type === "image" ? buildImage(e.src) : buildEmbedFacade(e));
+    }
+    card.appendChild(media);
+  }
+
+  const meta = document.createElement("div");
+  meta.className = "shuffle-meta";
+  const badge = document.createElement("span");
+  badge.className = "badge";
+  badge.setAttribute("data-tag", q.tag || "");
+  badge.textContent = capitalize(q.tag || "");
+  meta.appendChild(badge);
+  if (q.source) {
+    const s = document.createElement("span");
+    s.className = "quote-source";
+    appendLinkified(s, q.source);
+    meta.appendChild(s);
+  }
+  const dot = document.createElement("span");
+  dot.className = "dot";
+  dot.textContent = "·";
+  meta.appendChild(dot);
+  const date = document.createElement("span");
+  date.className = "quote-date";
+  date.textContent = formatDate(q.createdAt);
+  meta.appendChild(date);
+  card.appendChild(meta);
+
+  stage.replaceChildren(card);
 }
 
 // ------------------------------------------------------------
