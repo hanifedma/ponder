@@ -477,6 +477,7 @@ function wireAppUI() {
   setupInfiniteScroll();
 
   $("exportBtn").addEventListener("click", exportPdf);
+  $("dupBtn").addEventListener("click", scanForDuplicates);
 
   $("list").addEventListener("click", (e) => {
     const btn = e.target.closest(".del-btn");
@@ -714,6 +715,235 @@ function confirmDuplicate(matches) {
     card.tabIndex = -1;
     card.focus();
   });
+}
+
+// Scan the whole collection and group entries that are similar to each other.
+async function scanForDuplicates() {
+  if (allQuotes.length < 2) {
+    showToast("You need at least two entries to check for duplicates.");
+    return;
+  }
+  const big = allQuotes.length > 800;
+  if (big) {
+    setBusy(true, "Scanning for duplicates…");
+    await new Promise((r) => setTimeout(r, 30)); // let the overlay paint first
+  }
+  let groups;
+  try {
+    groups = findDuplicateGroups();
+  } finally {
+    if (big) setBusy(false);
+  }
+  if (!groups.length) {
+    showToast("No similar entries found 🎉");
+    return;
+  }
+  openDuplicatesModal(groups);
+}
+
+// Returns arrays of similar entries (each array has 2+ entries), largest first.
+function findDuplicateGroups() {
+  const items = allQuotes;
+  const n = items.length;
+  // Precompute normalized text, char-bigram counts, and word sets once each.
+  const norm = new Array(n);
+  const gmap = new Array(n);
+  const gtot = new Array(n);
+  const wset = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const s = normalizeText(items[i].text);
+    norm[i] = s;
+    const m = new Map();
+    for (let k = 0; k < s.length - 1; k++) {
+      const g = s.slice(k, k + 2);
+      m.set(g, (m.get(g) || 0) + 1);
+    }
+    gmap[i] = m;
+    gtot[i] = s.length > 1 ? s.length - 1 : 0;
+    wset[i] = new Set(s ? s.split(" ") : []);
+  }
+  // Union-Find to cluster transitively-similar entries.
+  const parent = new Array(n);
+  for (let i = 0; i < n; i++) parent[i] = i;
+  const find = (x) => {
+    while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+    return x;
+  };
+  for (let i = 0; i < n; i++) {
+    const si = norm[i];
+    if (!si) continue;
+    for (let j = i + 1; j < n; j++) {
+      const sj = norm[j];
+      if (!sj) continue;
+      const li = si.length, lj = sj.length;
+      if (Math.min(li, lj) / Math.max(li, lj) < 0.5) continue; // too different in length
+      let score;
+      if (si === sj) score = 1;
+      else if (li > 10 && lj > 10 && (si.includes(sj) || sj.includes(si))) score = 0.95;
+      else {
+        const dice = diceFromMaps(gmap[i], gtot[i], gmap[j], gtot[j]);
+        const jac = jaccardFromSets(wset[i], wset[j]);
+        score = dice > jac ? dice : jac;
+      }
+      if (score >= SIMILAR_THRESHOLD) {
+        const ri = find(i), rj = find(j);
+        if (ri !== rj) parent[ri] = rj;
+      }
+    }
+  }
+  const byRoot = new Map();
+  for (let i = 0; i < n; i++) {
+    const r = find(i);
+    let arr = byRoot.get(r);
+    if (!arr) { arr = []; byRoot.set(r, arr); }
+    arr.push(items[i]);
+  }
+  const groups = [];
+  for (const arr of byRoot.values()) if (arr.length >= 2) groups.push(arr);
+  groups.sort((a, b) => b.length - a.length);
+  return groups;
+}
+
+function diceFromMaps(A, aTot, B, bTot) {
+  if (!aTot || !bTot) return 0;
+  const [S, L] = A.size < B.size ? [A, B] : [B, A];
+  let inter = 0;
+  for (const [g, c] of S) {
+    const lc = L.get(g);
+    if (lc) inter += c < lc ? c : lc;
+  }
+  return (2 * inter) / (aTot + bTot);
+}
+
+function jaccardFromSets(a, b) {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  const [S, L] = a.size < b.size ? [a, b] : [b, a];
+  for (const w of S) if (L.has(w)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+
+function openDuplicatesModal(groups) {
+  const back = document.createElement("div");
+  back.className = "modal-backdrop";
+  const card = document.createElement("div");
+  card.className = "modal-card modal-card-lg";
+
+  const h = document.createElement("h2");
+  h.className = "modal-title";
+  h.textContent = "Possible duplicates";
+  card.appendChild(h);
+
+  const total = groups.reduce((s, g) => s + g.length, 0);
+  const sub = document.createElement("p");
+  sub.className = "modal-sub";
+  sub.textContent =
+    groups.length + (groups.length > 1 ? " groups" : " group") +
+    " of similar entries (" + total + " items). Delete the ones you don't want to keep.";
+  card.appendChild(sub);
+
+  const wrap = document.createElement("div");
+  wrap.className = "dup-groups";
+  for (const group of groups) {
+    const g = document.createElement("div");
+    g.className = "dup-group";
+    for (const q of group) g.appendChild(buildDupItem(q));
+    wrap.appendChild(g);
+  }
+  card.appendChild(wrap);
+
+  const actions = document.createElement("div");
+  actions.className = "modal-actions";
+  const done = document.createElement("button");
+  done.className = "btn btn-primary";
+  done.type = "button";
+  done.textContent = "Done";
+  actions.appendChild(done);
+  card.appendChild(actions);
+
+  back.appendChild(card);
+  document.body.appendChild(back);
+
+  function close() {
+    back.remove();
+    document.removeEventListener("keydown", onKey);
+  }
+  function onKey(e) {
+    if (e.key === "Escape") close();
+  }
+  done.addEventListener("click", close);
+  back.addEventListener("click", (e) => { if (e.target === back) close(); });
+  document.addEventListener("keydown", onKey);
+}
+
+function buildDupItem(q) {
+  const item = document.createElement("div");
+  item.className = "dup-item";
+
+  const text = document.createElement("p");
+  text.className = "dup-item-text";
+  text.textContent = q.text || "";
+  item.appendChild(text);
+
+  const meta = document.createElement("div");
+  meta.className = "dup-item-meta";
+  const badge = document.createElement("span");
+  badge.className = "badge";
+  badge.setAttribute("data-tag", q.tag || "");
+  badge.textContent = capitalize(q.tag || "");
+  meta.appendChild(badge);
+  if (q.source) {
+    const s = document.createElement("span");
+    s.className = "quote-source";
+    s.textContent = q.source;
+    meta.appendChild(s);
+  }
+  const dot = document.createElement("span");
+  dot.className = "dot";
+  dot.textContent = "·";
+  meta.appendChild(dot);
+  const date = document.createElement("span");
+  date.className = "quote-date";
+  date.textContent = formatDate(q.createdAt);
+  meta.appendChild(date);
+  item.appendChild(meta);
+
+  const del = document.createElement("button");
+  del.className = "dup-del";
+  del.type = "button";
+  del.title = "Delete";
+  del.setAttribute("aria-label", "Delete entry");
+  del.textContent = "✕";
+  del.addEventListener("click", () => dupDelete(q, item));
+  item.appendChild(del);
+  return item;
+}
+
+async function dupDelete(q, itemEl) {
+  const groupEl = itemEl.parentElement;
+  const backEl = itemEl.closest(".modal-backdrop");
+  const backup = { text: q.text, source: q.source, tag: q.tag, createdAt: tsToMillis(q.createdAt) };
+  try {
+    await currentStore.remove(q.id);
+    showToast("Deleted", {
+      actionLabel: "Undo",
+      duration: 6000,
+      onAction: async () => {
+        try { await currentStore.add(backup); }
+        catch (err) { console.error(err); showToast("Couldn't undo.", { type: "error" }); }
+      },
+    });
+    itemEl.remove();
+    // A group with fewer than 2 entries is no longer a duplicate group.
+    if (groupEl && groupEl.querySelectorAll(".dup-item").length < 2) groupEl.remove();
+    if (backEl && backEl.querySelectorAll(".dup-group").length === 0) {
+      backEl.remove();
+      showToast("No more duplicates 🎉");
+    }
+  } catch (err) {
+    console.error(err);
+    showToast("Couldn't delete. Please try again.", { type: "error" });
+  }
 }
 
 // ------------------------------------------------------------

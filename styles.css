@@ -492,6 +492,31 @@ button, input, select, textarea { font-family: inherit; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
 @media (prefers-reduced-motion: reduce) { .modal-backdrop { animation: none; } }
 
+/* Duplicate-scan modal */
+.modal-card-lg { max-width: 560px; }
+.dup-groups { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+.dup-group {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.dup-item {
+  position: relative; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 11px 42px 11px 12px;
+}
+.dup-item-text {
+  margin: 0 0 7px; font-size: 14.5px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+}
+.dup-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--faint); }
+.dup-del {
+  position: absolute; top: 8px; right: 8px;
+  border: none; background: transparent; color: var(--faint); cursor: pointer;
+  width: 28px; height: 28px; border-radius: 8px; font-size: 13px; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.dup-del:hover { background: var(--surface-3); color: var(--danger); }
+
 /* ---------------- Busy overlay (PDF) ---------------- */
 .overlay {
   position: fixed; inset: 0; z-index: 70;
