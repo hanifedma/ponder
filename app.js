@@ -566,13 +566,42 @@ function similarityScore(aNorm, bNorm) {
   if (aNorm.length > 10 && bNorm.length > 10 && (aNorm.includes(bNorm) || bNorm.includes(aNorm))) {
     return 0.95;
   }
-  // word-overlap (Jaccard) — order-independent, tolerant of small edits
+  // Take the stronger of two signals: word-overlap (order-independent, catches
+  // reordering) and character-bigram overlap (catches typos / minor edits).
+  return Math.max(jaccardWords(aNorm, bNorm), diceBigrams(aNorm, bNorm));
+}
+
+function jaccardWords(aNorm, bNorm) {
   const a = new Set(aNorm.split(" "));
   const b = new Set(bNorm.split(" "));
   let inter = 0;
   for (const w of a) if (b.has(w)) inter++;
   const union = a.size + b.size - inter;
   return union ? inter / union : 0;
+}
+
+function diceBigrams(aNorm, bNorm) {
+  if (aNorm.length < 2 || bNorm.length < 2) return aNorm === bNorm ? 1 : 0;
+  const grams = (s) => {
+    const m = new Map();
+    for (let i = 0; i < s.length - 1; i++) {
+      const g = s.slice(i, i + 2);
+      m.set(g, (m.get(g) || 0) + 1);
+    }
+    return m;
+  };
+  const A = grams(aNorm);
+  let aTot = 0;
+  for (const c of A.values()) aTot += c;
+  const B = grams(bNorm);
+  let bTot = 0;
+  let inter = 0;
+  for (const [g, c] of B) {
+    bTot += c;
+    const ac = A.get(g);
+    if (ac) inter += Math.min(c, ac);
+  }
+  return (2 * inter) / (aTot + bTot);
 }
 
 // Up to 5 existing entries similar to `text`, most-similar first.
