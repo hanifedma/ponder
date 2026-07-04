@@ -56,6 +56,7 @@ const TAGS = [
 const DEFAULT_TAG = "interesting";
 const PAGE_SIZE = 50; // how many quote cards to add to the DOM at a time
 const LOCAL_KEY = "quotes_local_v1"; // localStorage key for device-only quotes
+const SIMILAR_THRESHOLD = 0.6; // 0..1 word-overlap that counts as "similar"
 
 // ---- Tiny DOM helpers ----
 const $ = (id) => document.getElementById(id);
@@ -498,6 +499,12 @@ async function onAddSubmit(e) {
   const addBtn = $("addBtn");
   addBtn.disabled = true;
   try {
+    // Warn if a similar entry already exists; let the user decide.
+    const similar = findSimilar(text);
+    if (similar.length) {
+      const proceed = await confirmDuplicate(similar);
+      if (!proceed) return; // keep their text so they can edit/discard
+    }
     await currentStore.add({ text, source, tag });
     $("quoteText").value = "";
     $("quoteSource").value = "";
@@ -539,6 +546,140 @@ async function onDelete(id) {
     console.error(err);
     showToast("Couldn't delete. Please try again.", { type: "error" });
   }
+}
+
+// ------------------------------------------------------------
+//  Duplicate / similar detection (all local, no network)
+// ------------------------------------------------------------
+function normalizeText(s) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ") // drop punctuation; keep letters/numbers of any language
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function similarityScore(aNorm, bNorm) {
+  if (!aNorm || !bNorm) return 0;
+  if (aNorm === bNorm) return 1;
+  // one text fully contains the other (e.g. you added a few words)
+  if (aNorm.length > 10 && bNorm.length > 10 && (aNorm.includes(bNorm) || bNorm.includes(aNorm))) {
+    return 0.95;
+  }
+  // word-overlap (Jaccard) — order-independent, tolerant of small edits
+  const a = new Set(aNorm.split(" "));
+  const b = new Set(bNorm.split(" "));
+  let inter = 0;
+  for (const w of a) if (b.has(w)) inter++;
+  const union = a.size + b.size - inter;
+  return union ? inter / union : 0;
+}
+
+// Up to 5 existing entries similar to `text`, most-similar first.
+function findSimilar(text) {
+  const newNorm = normalizeText(text);
+  if (!newNorm) return [];
+  const out = [];
+  for (const q of allQuotes) {
+    const score = similarityScore(newNorm, normalizeText(q.text));
+    if (score >= SIMILAR_THRESHOLD) out.push({ q, score });
+  }
+  out.sort((x, y) => y.score - x.score);
+  return out.slice(0, 5);
+}
+
+// Modal that shows the similar entries and asks whether to add anyway.
+// Resolves true (add) or false (cancel).
+function confirmDuplicate(matches) {
+  return new Promise((resolve) => {
+    const back = document.createElement("div");
+    back.className = "modal-backdrop";
+
+    const card = document.createElement("div");
+    card.className = "modal-card";
+
+    const h = document.createElement("h2");
+    h.className = "modal-title";
+    h.textContent = matches.length > 1 ? "Possible duplicates" : "Possible duplicate";
+    card.appendChild(h);
+
+    const sub = document.createElement("p");
+    sub.className = "modal-sub";
+    sub.textContent =
+      "You already have " +
+      (matches.length > 1 ? "similar entries" : "a similar entry") +
+      ". Add this new one anyway?";
+    card.appendChild(sub);
+
+    const list = document.createElement("div");
+    list.className = "modal-list";
+    for (const m of matches) {
+      const item = document.createElement("div");
+      item.className = "modal-quote";
+
+      const txt = document.createElement("p");
+      txt.className = "modal-quote-text";
+      txt.textContent = m.q.text || "";
+      item.appendChild(txt);
+
+      const meta = document.createElement("div");
+      meta.className = "modal-quote-meta";
+
+      const badge = document.createElement("span");
+      badge.className = "badge";
+      badge.setAttribute("data-tag", m.q.tag || "");
+      badge.textContent = capitalize(m.q.tag || "");
+      meta.appendChild(badge);
+
+      if (m.q.source) {
+        const src = document.createElement("span");
+        src.className = "quote-source";
+        src.textContent = m.q.source;
+        meta.appendChild(src);
+      }
+
+      const match = document.createElement("span");
+      match.className = "modal-match";
+      match.textContent = Math.round(m.score * 100) + "% match";
+      meta.appendChild(match);
+
+      item.appendChild(meta);
+      list.appendChild(item);
+    }
+    card.appendChild(list);
+
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
+    const cancel = document.createElement("button");
+    cancel.className = "btn btn-ghost";
+    cancel.type = "button";
+    cancel.textContent = "Cancel";
+    const addAnyway = document.createElement("button");
+    addAnyway.className = "btn btn-primary";
+    addAnyway.type = "button";
+    addAnyway.textContent = "Add anyway";
+    actions.appendChild(cancel);
+    actions.appendChild(addAnyway);
+    card.appendChild(actions);
+
+    back.appendChild(card);
+    document.body.appendChild(back);
+
+    function close(result) {
+      back.remove();
+      document.removeEventListener("keydown", onKey);
+      resolve(result);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") close(false);
+      else if (e.key === "Enter") close(true);
+    }
+    cancel.addEventListener("click", () => close(false));
+    addAnyway.addEventListener("click", () => close(true));
+    back.addEventListener("click", (e) => { if (e.target === back) close(false); });
+    document.addEventListener("keydown", onKey);
+    addAnyway.focus();
+  });
 }
 
 // ------------------------------------------------------------

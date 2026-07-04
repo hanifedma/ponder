@@ -91,10 +91,10 @@ html, body { height: 100%; }
 /* ...but never clobber the toggle's own sun/moon animation (it needs to
    transition transform/opacity too, which the rule above would strip). */
 .theming .theme-switch .slider::before {
-  transition: transform 0.7s ease, background-color 2s ease, border-color 2s ease !important;
+  transition: transform 1.2s ease, background-color 2s ease, border-color 2s ease !important;
 }
 .theming .theme-switch .ts-label {
-  transition: opacity 0.5s ease, color 2s ease !important;
+  transition: opacity 0.9s ease, color 2s ease !important;
 }
 
 body {
@@ -180,7 +180,7 @@ button, input, select, textarea { font-family: inherit; }
   font-size: 15px; line-height: 1;
   box-shadow: var(--shadow-sm);
   transform: translateY(-50%);
-  transition: transform 0.7s ease;
+  transition: transform 1.2s ease;
 }
 .theme-switch input:checked + .slider::before {
   content: "🌙";
@@ -191,7 +191,7 @@ button, input, select, textarea { font-family: inherit; }
   position: absolute; top: 50%; transform: translateY(-50%);
   font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
   color: var(--muted); pointer-events: none;
-  transition: opacity 0.5s ease;
+  transition: opacity 0.9s ease;
 }
 .theme-switch .ts-light { right: 12px; opacity: 1; }
 .theme-switch .ts-dark { left: 12px; opacity: 0; }
@@ -461,6 +461,36 @@ button, input, select, textarea { font-family: inherit; }
 }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(8px); } }
+
+/* ---------------- Duplicate modal ---------------- */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 80;
+  background: rgba(0, 0, 0, .55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; animation: toast-in .15s ease;
+}
+.modal-card {
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  width: 100%; max-width: 460px; max-height: 85vh; overflow-y: auto;
+  padding: 22px;
+}
+.modal-title { font-size: 18px; margin: 0 0 4px; letter-spacing: -0.2px; }
+.modal-sub { color: var(--muted); font-size: 14px; margin: 0 0 16px; line-height: 1.5; }
+.modal-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.modal-quote {
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 13px;
+}
+.modal-quote-text {
+  margin: 0 0 9px; font-size: 15px; line-height: 1.55;
+  white-space: pre-wrap; word-break: break-word;
+}
+.modal-quote-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--faint); }
+.modal-quote-meta .quote-source { font-size: 12px; }
+.modal-match { margin-left: auto; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+@media (prefers-reduced-motion: reduce) { .modal-backdrop { animation: none; } }
 
 /* ---------------- Busy overlay (PDF) ---------------- */
 .overlay {
