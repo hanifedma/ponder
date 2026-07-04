@@ -74,8 +74,7 @@ let filtered = []; // after search + tag filter
 let renderCount = PAGE_SIZE; // target number of cards to show
 let domShown = 0; // number of cards currently in the DOM
 let searchTerm = "";
-let tagFilter = "all";
-let sortOrder = "desc"; // "desc" = newest first, "asc" = oldest first
+let sortOrder = "desc"; // "desc" = newest, "asc" = oldest, "tag" = grouped by tag
 
 const localStore = makeLocalStore(); // the single device-local backend
 
@@ -439,18 +438,12 @@ function wireThemeToggle() {
 // ------------------------------------------------------------
 function populateTagInputs() {
   const addSel = $("quoteTag");
-  const filterSel = $("filterTag");
   for (const tag of TAGS) {
-    const o1 = document.createElement("option");
-    o1.value = tag;
-    o1.textContent = capitalize(tag);
-    if (tag === DEFAULT_TAG) o1.selected = true;
-    addSel.appendChild(o1);
-
-    const o2 = document.createElement("option");
-    o2.value = tag;
-    o2.textContent = capitalize(tag);
-    filterSel.appendChild(o2);
+    const o = document.createElement("option");
+    o.value = tag;
+    o.textContent = capitalize(tag);
+    if (tag === DEFAULT_TAG) o.selected = true;
+    addSel.appendChild(o);
   }
 }
 
@@ -473,11 +466,6 @@ function wireAppUI() {
       applyFilter(true);
     }, 140)
   );
-
-  $("filterTag").addEventListener("change", (e) => {
-    tagFilter = e.target.value;
-    applyFilter(true);
-  });
 
   $("sortBy").addEventListener("change", (e) => {
     sortOrder = e.target.value;
@@ -560,19 +548,34 @@ async function onDelete(id) {
 function applyFilter(resetPage) {
   const t = searchTerm.trim().toLowerCase();
   filtered = allQuotes.filter((q) => {
-    if (tagFilter !== "all" && q.tag !== tagFilter) return false;
     if (t) {
       const hay = ((q.text || "") + " " + (q.source || "")).toLowerCase();
       if (!hay.includes(t)) return false;
     }
     return true;
   });
-  // Sort by date (createdAt). Works for both cloud Timestamps and local epoch ms.
-  const dir = sortOrder === "asc" ? 1 : -1;
-  filtered.sort((a, b) => (tsToMillis(a.createdAt) - tsToMillis(b.createdAt)) * dir);
+  filtered.sort(sortComparator);
   if (resetPage) renderCount = PAGE_SIZE;
   else renderCount = Math.max(PAGE_SIZE, Math.min(renderCount, filtered.length));
   render();
+}
+
+// Shared ordering used by both the list and the PDF export, driven by `sortOrder`.
+function sortComparator(a, b) {
+  if (sortOrder === "tag") {
+    // Group by tag (in the order tags are defined), newest first within a tag.
+    const ia = tagRank(a.tag);
+    const ib = tagRank(b.tag);
+    if (ia !== ib) return ia - ib;
+    return tsToMillis(b.createdAt) - tsToMillis(a.createdAt);
+  }
+  const dir = sortOrder === "asc" ? 1 : -1;
+  return (tsToMillis(a.createdAt) - tsToMillis(b.createdAt)) * dir;
+}
+
+function tagRank(tag) {
+  const i = TAGS.indexOf(tag);
+  return i < 0 ? TAGS.length : i; // unknown tags sort last
 }
 
 // Fresh render (on search / filter / sort / data change). Only puts the first
@@ -809,7 +812,9 @@ async function exportPdf() {
     );
     y += 24;
 
-    for (const q of allQuotes) {
+    // Export every entry, ordered by whatever sort is currently selected.
+    const exportList = allQuotes.slice().sort(sortComparator);
+    for (const q of exportList) {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(12);
       const bodyLines = pdf.splitTextToSize("“" + (q.text || "") + "”", maxW);
