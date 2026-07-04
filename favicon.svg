@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4ade80"/>
+      <stop offset="1" stop-color="#16a34a"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="64" height="64" rx="15" fill="url(#g)"/>
+  <!-- Two filled quotation marks (drawn as paths so they render identically everywhere) -->
+  <g fill="#ffffff">
+    <path d="M24 20 c-7 0 -12 5 -12 12 0 7 5 12 11 12 1.6 0 3-.3 3-.3 -2 3 -5 4.6 -9 5.2 l1.4 4.4 C25 63 33 55 33 42 33 29 30 20 24 20 Z"/>
+    <path d="M50 20 c-7 0 -12 5 -12 12 0 7 5 12 11 12 1.6 0 3-.3 3-.3 -2 3 -5 4.6 -9 5.2 l1.4 4.4 C51 63 59 55 59 42 59 29 56 20 50 20 Z"/>
+  </g>
+</svg>

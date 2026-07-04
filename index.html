@@ -1,0 +1,162 @@
+<!doctype html>
+<!-- "preload" disables transitions until first paint so the theme doesn't
+     animate on load; app.js removes it once rendering settles. -->
+<html lang="en" class="preload">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="description" content="Ponder — a fast, private place to keep quotes and thoughts, backed up." />
+  <title>Ponder</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+  <!-- Set theme before paint to avoid a flash. Default: dark -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute('content', t === 'light' ? '#ffffff' : '#0f0f0f');
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <!-- ================= HEADER ================= -->
+  <header class="topbar" id="topbar" hidden>
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">❝</span>
+        <span class="brand-name">Ponder</span>
+      </div>
+      <div class="topbar-actions">
+        <label class="theme-switch" for="themeCheckbox" title="Toggle light / dark mode">
+          <input type="checkbox" id="themeCheckbox" aria-label="Toggle light and dark mode" />
+          <span class="slider">
+            <span class="ts-label ts-light">Light</span>
+            <span class="ts-label ts-dark">Dark</span>
+          </span>
+        </label>
+        <button id="syncBtn" class="btn btn-primary sync-btn" type="button" hidden>
+          <span class="g-badge" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 18 18">
+              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.98 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"/>
+              <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/>
+            </svg>
+          </span>
+          Sign in with Google
+        </button>
+        <div class="user-chip local-chip" id="localChip" hidden>
+          <span class="user-name">🖥️ This device</span>
+        </div>
+        <div class="user-chip" id="userChip" hidden>
+          <img id="userPhoto" class="user-photo" alt="" referrerpolicy="no-referrer" />
+          <span id="userName" class="user-name"></span>
+          <button id="signOutBtn" class="text-btn" type="button">Sign out</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- ================= SETUP NOTICE ================= -->
+    <section id="setupView" class="center-view" hidden>
+      <div class="card setup-card">
+        <h1>⚙️ One-time setup needed</h1>
+        <p>The app isn't connected to a database yet. Open <code>firebase-config.js</code> and paste in your
+          Firebase project keys, then reload this page.</p>
+        <p class="muted">Full step-by-step instructions are in <code>README.md</code>. It takes about 5 minutes and is free.</p>
+      </div>
+    </section>
+
+    <!-- ================= LOGIN ================= -->
+    <section id="loginView" class="center-view" hidden>
+      <div class="card login-card">
+        <div class="login-mark">❝</div>
+        <h1>Your quotes &amp; thoughts.</h1>
+        <p class="muted">Sign in to keep quotes and thoughts only you can see. Fast, private, backed up.</p>
+        <button id="googleBtn" class="google-btn" type="button">
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+            <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.71-1.57 2.68-3.89 2.68-6.62z"/>
+            <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.81.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.02-3.7H.96v2.34A9 9 0 0 0 9 18z"/>
+            <path fill="#FBBC05" d="M3.98 10.72a5.4 5.4 0 0 1 0-3.44V4.94H.96a9 9 0 0 0 0 8.12l3.02-2.34z"/>
+            <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+        <p id="loginError" class="error-text" hidden></p>
+        <button id="localBtn" class="text-btn local-link" type="button">or use on this device without an account</button>
+      </div>
+    </section>
+
+    <!-- ================= APP ================= -->
+    <section id="appView" hidden>
+      <div id="localNote" class="local-note" hidden>
+        📵 <strong>Local-only mode.</strong> Your quotes &amp; thoughts are saved on this device only.
+        To turn on Google login &amp; sync, do the one-time Firebase setup — it works on localhost, no deploy needed. See <code>README.md</code>.
+      </div>
+
+      <!-- Add quote -->
+      <form id="addForm" class="card add-card" autocomplete="off">
+        <textarea id="quoteText" class="input textarea" placeholder="Write a quote or a thought…" rows="3" required maxlength="4000"></textarea>
+        <div class="add-row">
+          <input id="quoteSource" class="input" type="text" placeholder="Source (optional: author, book…)" maxlength="300" />
+          <select id="quoteTag" class="input select" aria-label="Tag"></select>
+          <button type="submit" class="btn btn-primary" id="addBtn">Add quote</button>
+        </div>
+        <p class="hint">Tip: press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to add.</p>
+      </form>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon" aria-hidden="true">🔍</span>
+          <input id="searchInput" class="input" type="search" placeholder="Search…" />
+        </div>
+        <select id="filterTag" class="input select filter-select" aria-label="Filter by tag">
+          <option value="all">All tags</option>
+        </select>
+        <select id="sortBy" class="input select filter-select" aria-label="Sort by date">
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
+        <button id="exportBtn" class="btn btn-ghost" type="button">⬇ Export PDF</button>
+      </div>
+
+      <div class="list-meta">
+        <span id="countLabel" class="muted"></span>
+        <span id="offlineBadge" class="offline-badge" hidden>offline · showing saved copy</span>
+      </div>
+
+      <!-- List -->
+      <div id="list" class="list"></div>
+
+      <div id="emptyState" class="empty-state" hidden>
+        <span class="empty-emoji" aria-hidden="true">📝</span>
+        <p>No quotes yet.</p>
+        <p class="muted">Add your first one above ☝️</p>
+      </div>
+
+      <!-- Infinite-scroll trigger: when this scrolls into view, more cards append. -->
+      <div id="sentinel" class="sentinel" aria-hidden="true"></div>
+    </section>
+  </main>
+
+  <!-- Toast notifications -->
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <!-- Full-screen busy overlay (PDF export) -->
+  <div id="overlay" class="overlay" hidden>
+    <div class="spinner"></div>
+    <p id="overlayText">Working…</p>
+  </div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
