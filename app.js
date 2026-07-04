@@ -1099,6 +1099,16 @@ function renderCard(q) {
 
   card.appendChild(del);
   card.appendChild(text);
+
+  // Playable media (YouTube / Instagram / Vimeo) found in the text.
+  const embeds = detectEmbeds(q.text || "");
+  if (embeds.length) {
+    const media = document.createElement("div");
+    media.className = "media";
+    for (const e of embeds) media.appendChild(buildEmbedFacade(e));
+    card.appendChild(media);
+  }
+
   card.appendChild(foot);
   return card;
 }
@@ -1271,6 +1281,85 @@ function appendLinkified(el, text) {
     last = m.index + raw.length;
   }
   if (last < str.length) el.appendChild(document.createTextNode(str.slice(last)));
+}
+
+// Find embeddable media (YouTube / Vimeo / Instagram) in an entry's text.
+function detectEmbeds(text) {
+  const str = text || "";
+  const out = [];
+  const seen = new Set();
+  const add = (o) => {
+    const key = o.type + ":" + o.id;
+    if (!seen.has(key)) { seen.add(key); out.push(o); }
+  };
+  let m;
+  const yt = /(?:youtube\.com\/(?:watch\?(?:[^ ]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/gi;
+  while ((m = yt.exec(str)) !== null)
+    add({
+      type: "youtube", id: m[1], label: "YouTube video",
+      embed: "https://www.youtube.com/embed/" + m[1],
+      thumb: "https://i.ytimg.com/vi/" + m[1] + "/hqdefault.jpg",
+    });
+  const vm = /vimeo\.com\/(?:video\/)?(\d{6,})/gi;
+  while ((m = vm.exec(str)) !== null)
+    add({ type: "vimeo", id: m[1], label: "Vimeo video", embed: "https://player.vimeo.com/video/" + m[1] });
+  const ig = /instagram\.com\/(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/gi;
+  while ((m = ig.exec(str)) !== null) {
+    const kind = m[1] === "reels" ? "reel" : m[1];
+    add({
+      type: "instagram", id: m[2],
+      label: "Instagram " + (kind === "reel" ? "reel" : kind === "tv" ? "video" : "post"),
+      embed: "https://www.instagram.com/" + kind + "/" + m[2] + "/embed/",
+    });
+  }
+  return out;
+}
+
+// A lightweight preview that swaps in the real player iframe only when clicked.
+function buildEmbedFacade(e) {
+  const ratio = e.type !== "instagram"; // 16:9 for video players
+  const wrap = document.createElement("div");
+  wrap.className = "embed embed-" + e.type + (ratio ? " ratio" : "");
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "embed-facade";
+  btn.setAttribute("aria-label", "Play " + e.label);
+
+  if (e.thumb) {
+    const img = document.createElement("img");
+    img.className = "embed-thumb";
+    img.loading = "lazy";
+    img.alt = "";
+    img.src = e.thumb;
+    img.addEventListener("error", () => img.remove()); // fall back to plain facade
+    btn.appendChild(img);
+  }
+  const play = document.createElement("span");
+  play.className = "embed-play";
+  play.textContent = "▶";
+  btn.appendChild(play);
+  const label = document.createElement("span");
+  label.className = "embed-label";
+  label.textContent = "Play " + e.label;
+  btn.appendChild(label);
+
+  btn.addEventListener("click", () => {
+    const frame = document.createElement("iframe");
+    frame.className = ratio ? "embed-iframe" : "embed-iframe embed-iframe-ig";
+    let src = e.embed;
+    if (e.type === "youtube") src += "?autoplay=1&rel=0";
+    else if (e.type === "vimeo") src += "?autoplay=1";
+    frame.src = src;
+    frame.allow =
+      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+    frame.setAttribute("allowfullscreen", "");
+    frame.loading = "lazy";
+    wrap.replaceChildren(frame);
+    wrap.classList.add("loaded");
+  });
+  wrap.appendChild(btn);
+  return wrap;
 }
 
 function toDateObj(ts) {

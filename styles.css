@@ -368,6 +368,35 @@ button, input, select, textarea { font-family: inherit; }
   white-space: pre-wrap; word-break: break-word;
   padding-right: 26px;
 }
+/* ---------- Inline media players (click-to-play facade) ---------- */
+.media { margin: 2px 0 13px; display: flex; flex-direction: column; gap: 10px; }
+.embed {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  overflow: hidden; background: #000; max-width: 100%;
+}
+.embed-instagram { max-width: 400px; background: var(--surface-2); }
+.embed.ratio { position: relative; aspect-ratio: 16 / 9; }
+.embed.ratio .embed-facade, .embed.ratio .embed-iframe { position: absolute; inset: 0; width: 100%; height: 100%; }
+.embed-facade {
+  border: 0; cursor: pointer; padding: 13px 15px; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: var(--surface-2); color: var(--text); font-weight: 600; font-size: 14px;
+}
+.embed-instagram .embed-facade { justify-content: flex-start; }
+.embed-thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.embed-play {
+  position: relative; z-index: 1; flex: 0 0 auto;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(0, 0, 0, .62); color: #fff; font-size: 16px; padding-left: 3px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: transform .12s ease;
+}
+.embed-facade:hover .embed-play { transform: scale(1.07); }
+.embed-label { position: relative; z-index: 1; }
+.embed-youtube .embed-label { display: none; } /* the thumbnail already says it all */
+.embed-iframe { border: 0; display: block; }
+.embed-iframe-ig { width: 100%; height: 640px; background: #fff; }
+
 .quote-foot {
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   font-size: 13px; color: var(--muted);
