@@ -372,6 +372,13 @@ button, input, select, textarea { font-family: inherit; }
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
   font-size: 13px; color: var(--muted);
 }
+.quote-link {
+  color: var(--accent); text-decoration: underline; text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+.quote-link:hover { text-decoration: none; }
+.quote-source .quote-link { font-style: normal; }
+
 .quote-source { font-style: italic; color: var(--muted); }
 .quote-source::before { content: "— "; opacity: .7; }
 .dot { color: var(--faint); }

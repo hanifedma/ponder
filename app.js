@@ -649,7 +649,7 @@ function confirmDuplicate(matches) {
 
       const txt = document.createElement("p");
       txt.className = "modal-quote-text";
-      txt.textContent = m.q.text || "";
+      appendLinkified(txt, m.q.text || "");
       item.appendChild(txt);
 
       const meta = document.createElement("div");
@@ -664,7 +664,7 @@ function confirmDuplicate(matches) {
       if (m.q.source) {
         const src = document.createElement("span");
         src.className = "quote-source";
-        src.textContent = m.q.source;
+        appendLinkified(src, m.q.source);
         meta.appendChild(src);
       }
 
@@ -839,7 +839,7 @@ function buildDupItem(q) {
 
   const text = document.createElement("p");
   text.className = "dup-item-text";
-  text.textContent = q.text || "";
+  appendLinkified(text, q.text || "");
   item.appendChild(text);
 
   const meta = document.createElement("div");
@@ -852,7 +852,7 @@ function buildDupItem(q) {
   if (q.source) {
     const s = document.createElement("span");
     s.className = "quote-source";
-    s.textContent = q.source;
+    appendLinkified(s, q.source);
     meta.appendChild(s);
   }
   const dot = document.createElement("span");
@@ -1061,7 +1061,7 @@ function renderCard(q) {
 
   const text = document.createElement("p");
   text.className = "quote-text";
-  text.textContent = q.text || ""; // textContent => safe from HTML injection
+  appendLinkified(text, q.text || ""); // safe: builds text/anchor nodes, no HTML
 
   const foot = document.createElement("div");
   foot.className = "quote-foot";
@@ -1075,7 +1075,7 @@ function renderCard(q) {
   if (q.source) {
     const src = document.createElement("span");
     src.className = "quote-source";
-    src.textContent = q.source;
+    appendLinkified(src, q.source);
     foot.appendChild(src);
   }
 
@@ -1245,6 +1245,32 @@ function setBusy(on, text) {
 function capitalize(s) {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Appends `text` into `el`, turning any http(s):// or www. URL into a real,
+// safe clickable link (opens in a new tab). No innerHTML, so no injection.
+function appendLinkified(el, text) {
+  const str = text || "";
+  const re = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+  let last = 0;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    if (m.index > last) el.appendChild(document.createTextNode(str.slice(last, m.index)));
+    const raw = m[0];
+    // don't swallow trailing sentence punctuation into the URL
+    const url = raw.replace(/[.,;:!?)\]'"]+$/, "");
+    const trailing = raw.slice(url.length);
+    const a = document.createElement("a");
+    a.className = "quote-link";
+    a.href = /^https?:\/\//i.test(url) ? url : "https://" + url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.textContent = url;
+    el.appendChild(a);
+    if (trailing) el.appendChild(document.createTextNode(trailing));
+    last = m.index + raw.length;
+  }
+  if (last < str.length) el.appendChild(document.createTextNode(str.slice(last)));
 }
 
 function toDateObj(ts) {
