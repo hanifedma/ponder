@@ -91,10 +91,10 @@ html, body { height: 100%; }
 /* ...but never clobber the toggle's own sun/moon animation (it needs to
    transition transform/opacity too, which the rule above would strip). */
 .theming .theme-switch .slider::before {
-  transition: transform 1.2s ease, background-color 2s ease, border-color 2s ease !important;
+  transition: transform 2s ease, background-color 2s ease, border-color 2s ease !important;
 }
 .theming .theme-switch .ts-label {
-  transition: opacity 0.9s ease, color 2s ease !important;
+  transition: opacity 1.5s ease, color 2s ease !important;
 }
 
 body {
@@ -180,7 +180,7 @@ button, input, select, textarea { font-family: inherit; }
   font-size: 15px; line-height: 1;
   box-shadow: var(--shadow-sm);
   transform: translateY(-50%);
-  transition: transform 1.2s ease;
+  transition: transform 2s ease;
 }
 .theme-switch input:checked + .slider::before {
   content: "🌙";
@@ -191,7 +191,7 @@ button, input, select, textarea { font-family: inherit; }
   position: absolute; top: 50%; transform: translateY(-50%);
   font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
   color: var(--muted); pointer-events: none;
-  transition: opacity 0.9s ease;
+  transition: opacity 1.5s ease;
 }
 .theme-switch .ts-light { right: 12px; opacity: 1; }
 .theme-switch .ts-dark { left: 12px; opacity: 0; }

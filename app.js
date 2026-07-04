@@ -671,14 +671,19 @@ function confirmDuplicate(matches) {
       resolve(result);
     }
     function onKey(e) {
-      if (e.key === "Escape") close(false);
-      else if (e.key === "Enter") close(true);
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        close(true);
+      }
     }
     cancel.addEventListener("click", () => close(false));
     addAnyway.addEventListener("click", () => close(true));
     back.addEventListener("click", (e) => { if (e.target === back) close(false); });
     document.addEventListener("keydown", onKey);
-    addAnyway.focus();
+    // Focus the (non-actionable) card, not a button, so plain Enter does nothing
+    // — only Ctrl/Cmd+Enter adds.
+    card.tabIndex = -1;
+    card.focus();
   });
 }
 
