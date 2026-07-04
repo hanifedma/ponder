@@ -452,7 +452,8 @@ function populateTagInputs() {
 // ------------------------------------------------------------
 function wireAppUI() {
   $("addForm").addEventListener("submit", onAddSubmit);
-  $("quoteText").addEventListener("keydown", (e) => {
+  // Ctrl/Cmd + Enter submits from anywhere in the composer (quote, source, or tag).
+  $("addForm").addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
       e.preventDefault();
       $("addForm").requestSubmit();
