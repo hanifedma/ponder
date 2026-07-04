@@ -574,11 +574,15 @@ button, input, select, textarea { font-family: inherit; }
 }
 .shuffle-close:hover { background: var(--surface-3); }
 .shuffle-stage {
-  flex: 1; display: flex; align-items: center; justify-content: center;
+  flex: 1; min-height: 0; /* lets this flex child shrink so it can scroll */
+  display: flex; flex-direction: column; align-items: center;
   padding: 22px 8px; overflow-y: auto; cursor: pointer; outline: none;
 }
 .shuffle-card {
-  max-width: 640px; width: 100%; text-align: center; animation: shuffle-in .2s ease;
+  max-width: 640px; width: 100%; text-align: center;
+  /* auto margins center it when short, but collapse when it's taller than the
+     stage — so the top stays reachable and the whole thing scrolls. */
+  margin: auto 0; animation: shuffle-in .2s ease;
 }
 @keyframes shuffle-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .shuffle-text {
@@ -587,6 +591,12 @@ button, input, select, textarea { font-family: inherit; }
 }
 .shuffle-card .media { max-width: 520px; margin: 0 auto 20px; align-items: center; }
 .shuffle-card .embed-image { align-self: center; }
+/* 16:9 players need an explicit width here (centered flex items don't stretch),
+   otherwise their absolutely-positioned iframe collapses to zero and won't show. */
+.shuffle-card .embed.ratio { width: 100%; }
+/* Keep media from filling the whole screen in shuffle, so the quote stays visible. */
+.shuffle-card .embed-image .embed-img { max-height: 60vh; }
+.shuffle-card .embed-iframe-ig { height: min(640px, 58vh); }
 .shuffle-meta {
   display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;
   font-size: 14px; color: var(--muted);
