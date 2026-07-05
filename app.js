@@ -348,7 +348,7 @@ function enterLocalMode() {
   if (firebaseReady) hide($("localNote"));
   else show($("localNote"));
 
-  requestAnimationFrame(positionPill);
+  requestAnimationFrame(function () { positionPill(false); });
   startSpaceStore();
 }
 
@@ -374,7 +374,7 @@ function enterCloudMode(user) {
   }
   show($("userChip"));
 
-  requestAnimationFrame(positionPill);
+  requestAnimationFrame(function () { positionPill(false); });
   startSpaceStore();
 }
 
@@ -530,22 +530,30 @@ function applySpaceUI() {
   document.querySelectorAll(".space-tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.space === currentSpace)
   );
-  positionPill();
+  positionPill(true); // slide to the newly active tab
 }
 
 // Slide the highlight pill onto the active tab (measured, so it animates).
-function positionPill() {
+function positionPill(animate) {
   const spaces = document.querySelector(".spaces");
   const pill = spaces && spaces.querySelector(".space-pill");
   const active = spaces && spaces.querySelector(".space-tab.active");
   if (!spaces || !pill || !active || !active.offsetWidth) return; // hidden / not laid out
-  pill.style.transform = "translateX(" + (active.offsetLeft - spaces.clientLeft) + "px)";
-  pill.style.width = active.offsetWidth + "px";
-  // Enable the slide only after the first (snap) placement, so it doesn't
-  // animate in from the left on page load.
-  if (!spaces.classList.contains("anim")) {
-    requestAnimationFrame(() => requestAnimationFrame(() => spaces.classList.add("anim")));
+  const x = active.offsetLeft - spaces.clientLeft;
+  const w = active.offsetWidth;
+  if (animate) {
+    pill.style.transform = "translateX(" + x + "px)";
+    pill.style.width = w + "px";
+  } else {
+    // Snap instantly (first placement / resize) so the pill can't lag outside
+    // the box while the layout changes.
+    pill.style.transition = "none";
+    pill.style.transform = "translateX(" + x + "px)";
+    pill.style.width = w + "px";
+    void pill.offsetWidth; // force reflow so "none" applies before restoring
+    pill.style.transition = ""; // back to the CSS-defined transition
   }
+  spaces.classList.add("anim"); // enable sliding for subsequent tab switches
 }
 
 function switchSpace(key) {
@@ -599,7 +607,13 @@ function wireAppUI() {
   document.querySelectorAll(".space-tab").forEach((t) => {
     t.addEventListener("click", () => switchSpace(t.dataset.space));
   });
-  window.addEventListener("resize", debounce(positionPill, 150), { passive: true });
+  // Keep the pill aligned as the nav resizes (snap, no slide) so it never lags
+  // outside the box when the layout reflows (e.g. small ↔ large screens).
+  const spacesEl = document.querySelector(".spaces");
+  if (spacesEl && typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(() => positionPill(false)).observe(spacesEl);
+  }
+  window.addEventListener("resize", debounce(() => positionPill(false), 100), { passive: true });
 
   // Shuffle (random one-at-a-time) view
   $("shuffleBtn").addEventListener("click", openShuffle);
@@ -1306,6 +1320,24 @@ async function exportPdf() {
   }
   setBusy(true, "Building your PDF…");
   try {
+    // Entries in the current sort order, each with its detected media.
+    const entries = allQuotes
+      .slice()
+      .sort(sortComparator)
+      .map((q) => ({ q, media: detectEmbeds(q.text || "") }));
+
+    // Preload renderable thumbnails once each: YouTube still + direct images.
+    // (Vimeo/Instagram have no reliable thumbnail URL, so they're skipped.)
+    const thumbUrl = (e) => (e.type === "youtube" ? e.thumb : e.type === "image" ? e.src : null);
+    const urls = new Set();
+    for (const it of entries) for (const e of it.media) { const u = thumbUrl(e); if (u) urls.add(u); }
+    const thumbs = new Map();
+    if (urls.size) {
+      setBusy(true, "Fetching media…");
+      await Promise.all([...urls].map(async (u) => thumbs.set(u, await loadThumb(u))));
+    }
+    setBusy(true, "Building your PDF…");
+
     const mod = await import("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm");
     const jsPDF = mod.jsPDF || (mod.default && mod.default.jsPDF) || mod.default;
     const pdf = new jsPDF({ unit: "pt", format: "a4" });
@@ -1315,6 +1347,7 @@ async function exportPdf() {
     const pageH = pdf.internal.pageSize.getHeight();
     const maxW = pageW - margin * 2;
     let y = margin;
+    const ensure = (h) => { if (y + h > pageH - margin) { pdf.addPage(); y = margin; } };
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(20);
@@ -1324,35 +1357,43 @@ async function exportPdf() {
     pdf.setFontSize(10);
     pdf.setTextColor(130);
     pdf.text(
-      "Exported " + new Date().toLocaleString() + "  ·  " + allQuotes.length + " entries",
+      "Exported " + new Date().toLocaleString() + "  ·  " + entries.length + " entries",
       margin,
       y
     );
     y += 24;
 
-    // Export every entry, ordered by whatever sort is currently selected.
-    const exportList = allQuotes.slice().sort(sortComparator);
-    for (const q of exportList) {
+    for (const { q, media } of entries) {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(12);
       const bodyLines = pdf.splitTextToSize("“" + (q.text || "") + "”", maxW);
+      ensure(bodyLines.length * 16 + 20);
+      pdf.setTextColor(25);
+      pdf.text(bodyLines, margin, y);
+      y += bodyLines.length * 16 + 6;
+
+      // Media thumbnails (up to 3 per entry, whichever loaded)
+      let shown = 0;
+      for (const e of media) {
+        if (shown >= 3) break;
+        const u = thumbUrl(e);
+        const t = u && thumbs.get(u);
+        if (!t) continue;
+        let dispW = Math.min(300, maxW);
+        let dispH = (dispW * t.h) / t.w;
+        if (dispH > 200) { dispH = 200; dispW = (dispH * t.w) / t.h; }
+        ensure(dispH + 8);
+        try { pdf.addImage(t.dataUrl, "JPEG", margin, y, dispW, dispH); } catch (e2) { continue; }
+        y += dispH + 8;
+        shown++;
+      }
 
       const metaParts = [];
       if (q.source) metaParts.push(q.source);
       metaParts.push(capitalize(q.tag || ""));
       metaParts.push(formatDate(q.createdAt));
       const metaLines = pdf.splitTextToSize(metaParts.join("  ·  "), maxW);
-
-      const blockH = bodyLines.length * 16 + metaLines.length * 12 + 22;
-      if (y + blockH > pageH - margin) {
-        pdf.addPage();
-        y = margin;
-      }
-
-      pdf.setTextColor(25);
-      pdf.text(bodyLines, margin, y);
-      y += bodyLines.length * 16 + 4;
-
+      ensure(metaLines.length * 12 + 12);
       pdf.setFontSize(9);
       pdf.setTextColor(120);
       pdf.text(metaLines, margin, y);
@@ -1373,7 +1414,7 @@ async function exportPdf() {
 
     const stamp = new Date().toISOString().slice(0, 10);
     pdf.save(SPACES[currentSpace].pdfFile + "-" + stamp + ".pdf");
-    showToast("PDF downloaded (" + allQuotes.length + " entries)");
+    showToast("PDF downloaded (" + entries.length + " entries)");
   } catch (err) {
     console.error(err);
     showToast("Couldn't build the PDF. Please check your connection and try again.", {
@@ -1382,6 +1423,34 @@ async function exportPdf() {
   } finally {
     setBusy(false);
   }
+}
+
+// Load an image cross-origin and return {dataUrl,w,h} for embedding in the PDF,
+// or null if it can't be read (host doesn't allow CORS / error / timeout).
+function loadThumb(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    const timer = setTimeout(() => resolve(null), 8000);
+    img.onload = () => {
+      clearTimeout(timer);
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        canvas.getContext("2d").drawImage(img, 0, 0);
+        resolve({
+          dataUrl: canvas.toDataURL("image/jpeg", 0.82),
+          w: img.naturalWidth,
+          h: img.naturalHeight,
+        });
+      } catch (e) {
+        resolve(null); // tainted canvas (no CORS)
+      }
+    };
+    img.onerror = () => { clearTimeout(timer); resolve(null); };
+    img.src = url;
+  });
 }
 
 function setBusy(on, text) {
