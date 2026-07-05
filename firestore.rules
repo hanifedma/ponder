@@ -1,12 +1,13 @@
 rules_version = '2';
 
-// Each user's quotes live at:  /users/{uid}/quotes/{quoteId}
+// Each user's data lives under /users/{uid}/... (e.g. /quotes, /healthtips).
 // A signed-in user can ONLY read and write documents under their own uid.
-// Nobody can read or write anyone else's quotes.
+// Nobody can read or write anyone else's data.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /users/{userId}/quotes/{quoteId} {
+    // Any subcollection (quotes, healthtips, …) under the user's own path.
+    match /users/{userId}/{collection}/{docId} {
       allow read, write: if request.auth != null
                          && request.auth.uid == userId;
     }

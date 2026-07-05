@@ -45,17 +45,47 @@ async function loadFirebase() {
   } = fsMod);
 }
 
-// ---- The 5 tags (edit here to rename them; nothing else to change) ----
-const TAGS = [
-  "extraterrestrial",
-  "try to read this everyday",
-  "very important",
-  "pretty important",
-  "interesting",
-];
-const DEFAULT_TAG = "interesting";
-const PAGE_SIZE = 50; // how many quote cards to add to the DOM at a time
-const LOCAL_KEY = "quotes_local_v1"; // localStorage key for device-only quotes
+// ---- Spaces: each is its own database (Firestore collection + local key)
+//      with its own tags. Add another space here and it appears in the nav. ----
+const SPACES = {
+  ponder: {
+    name: "Ponder",
+    icon: "❝",
+    collection: "quotes",
+    localKey: "quotes_local_v1",
+    tags: ["extraterrestrial", "try to read this everyday", "very important", "pretty important", "interesting"],
+    defaultTag: "interesting",
+    placeholder: "Write a quote or a thought…",
+    addLabel: "Add quote",
+    pdfTitle: "Ponder — Quotes & Thoughts",
+    pdfFile: "ponder-backup",
+    emptyTitle: "Nothing here yet.",
+    emptySub: "Add your first quote or thought above ☝️",
+    localNote: "Your quotes &amp; thoughts are saved on this device only.",
+  },
+  health: {
+    name: "Healthy Tips",
+    icon: "🌿",
+    collection: "healthtips",
+    localKey: "healthtips_local_v1",
+    tags: ["pretty sure", "not really", "interesting"],
+    defaultTag: "interesting",
+    placeholder: "Write a healthy tip…",
+    addLabel: "Add tip",
+    pdfTitle: "Healthy Tips",
+    pdfFile: "healthy-tips-backup",
+    emptyTitle: "No tips yet.",
+    emptySub: "Add your first healthy tip above ☝️",
+    localNote: "Your healthy tips are saved on this device only.",
+  },
+};
+const SPACE_ORDER = ["ponder", "health"];
+
+let currentSpace = "ponder"; // set from localStorage in boot()
+let TAGS = SPACES[currentSpace].tags; // current space's tags (updated on switch)
+let DEFAULT_TAG = SPACES[currentSpace].defaultTag;
+
+const PAGE_SIZE = 50; // how many cards to add to the DOM at a time
 const SIMILAR_THRESHOLD = 0.6; // 0..1 word-overlap that counts as "similar"
 
 // ---- Tiny DOM helpers ----
@@ -67,6 +97,7 @@ const hide = (el) => el && (el.hidden = true);
 let auth = null;
 let db = null;
 let firebaseReady = false; // true only when config is filled in AND init succeeded
+let currentUser = null; // signed-in user (cloud mode)
 let currentStore = null; // active backend (cloud or local)
 let currentMode = null; // "cloud" | "local" | null(login)
 let loading = false; // waiting for first cloud snapshot
@@ -79,16 +110,28 @@ let sortOrder = "desc"; // "desc" = newest, "asc" = oldest, "tag" = grouped by t
 let shuffleCurrentId = null; // avoid showing the same random entry twice in a row
 let lastShuffle = 0; // debounce tap+click double fire
 
-const localStore = makeLocalStore(); // the single device-local backend
+const localStores = {}; // one device-local backend per space (keyed by localKey)
+function getLocalStore(key) {
+  return localStores[key] || (localStores[key] = makeLocalStore(key));
+}
 
 // ------------------------------------------------------------
 //  Boot
 // ------------------------------------------------------------
 async function boot() {
+  // Restore the last-used space before building the UI.
+  try {
+    const saved = localStorage.getItem("active_space");
+    if (saved && SPACES[saved]) currentSpace = saved;
+  } catch (e) {}
+  TAGS = SPACES[currentSpace].tags;
+  DEFAULT_TAG = SPACES[currentSpace].defaultTag;
+
   wireThemeToggle();
   populateTagInputs();
   wireAppUI();
   wireAuthButtons();
+  applySpaceUI();
 
   firebaseReady = false;
   if (isConfigured()) {
@@ -133,17 +176,17 @@ function isConfigured() {
 // ------------------------------------------------------------
 //  Storage backends (one interface: start / stop / add / remove)
 // ------------------------------------------------------------
-function userQuotesCol(uid) {
+function userCol(uid, coll) {
   // Per-user subcollection => strong isolation + no composite index needed.
-  return collection(db, "users", uid, "quotes");
+  return collection(db, "users", uid, coll);
 }
 
-function makeCloudStore(uid) {
+function makeCloudStore(uid, coll) {
   let unsub = null;
   return {
     mode: "cloud",
     start(onData) {
-      const q = query(userQuotesCol(uid), orderBy("createdAt", "desc"));
+      const q = query(userCol(uid, coll), orderBy("createdAt", "desc"));
       unsub = onSnapshot(
         q,
         (snap) => {
@@ -153,7 +196,7 @@ function makeCloudStore(uid) {
         (err) => {
           console.error("Firestore error:", err);
           showToast(
-            "Couldn't load your quotes. Check your connection, or that the Firestore security rules are published.",
+            "Couldn't load your data. Check your connection, or that the Firestore security rules are published.",
             { type: "error", duration: 7000 }
           );
           onData(allQuotes, { fromCache: true, local: false, error: true });
@@ -167,26 +210,26 @@ function makeCloudStore(uid) {
       // Preserve an existing timestamp (used when migrating / undoing);
       // otherwise stamp it on the server.
       const createdAt = q.createdAt != null ? new Date(q.createdAt) : serverTimestamp();
-      await addDoc(userQuotesCol(uid), {
+      await addDoc(userCol(uid, coll), {
         text: q.text,
         source: q.source || "",
-        tag: TAGS.includes(q.tag) ? q.tag : DEFAULT_TAG,
+        tag: q.tag || DEFAULT_TAG,
         createdAt,
       });
     },
     async remove(id) {
-      await deleteDoc(doc(db, "users", uid, "quotes", id));
+      await deleteDoc(doc(db, "users", uid, coll, id));
     },
   };
 }
 
-function makeLocalStore() {
+function makeLocalStore(localKey) {
   let items = load();
   let cb = null;
 
   function load() {
     try {
-      const raw = JSON.parse(localStorage.getItem(LOCAL_KEY)) || [];
+      const raw = JSON.parse(localStorage.getItem(localKey)) || [];
       return raw.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
     } catch (e) {
       return [];
@@ -194,7 +237,7 @@ function makeLocalStore() {
   }
   function save() {
     try {
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(items));
+      localStorage.setItem(localKey, JSON.stringify(items));
     } catch (e) {
       console.error("Could not save locally:", e);
     }
@@ -217,7 +260,7 @@ function makeLocalStore() {
         id: genId(),
         text: q.text,
         source: q.source || "",
-        tag: TAGS.includes(q.tag) ? q.tag : DEFAULT_TAG,
+        tag: q.tag || DEFAULT_TAG,
         createdAt: q.createdAt != null ? Number(q.createdAt) : Date.now(),
       });
       save();
@@ -239,30 +282,35 @@ function makeLocalStore() {
   };
 }
 
-// Move device-local quotes into the signed-in account (one-time offer).
+// Move device-local items (every space) into the signed-in account (one-time offer).
 async function maybeMigrateLocal(user) {
-  const local = localStore.getAll();
-  if (!local.length) return;
+  const withLocal = SPACE_ORDER
+    .map((k) => SPACES[k])
+    .filter((s) => getLocalStore(s.localKey).getAll().length);
+  const total = withLocal.reduce((n, s) => n + getLocalStore(s.localKey).getAll().length, 0);
+  if (!total) return;
   const ok = confirm(
-    "You have " +
-      local.length +
-      " item(s) saved on this device.\n\nMove them into your account so they sync across devices?"
+    "You have " + total + " item(s) saved on this device.\n\nMove them into your account so they sync across devices?"
   );
   if (!ok) return;
-
-  const cloud = makeCloudStore(user.uid);
   try {
-    const ordered = local
-      .slice()
-      .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
-    for (const q of ordered) await cloud.add(q);
-    localStore.clear();
-    showToast("Moved " + ordered.length + " item(s) into your account");
+    let moved = 0;
+    for (const s of withLocal) {
+      const store = getLocalStore(s.localKey);
+      const cloud = makeCloudStore(user.uid, s.collection);
+      const ordered = store
+        .getAll()
+        .sort((a, b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+      for (const q of ordered) {
+        await cloud.add(q);
+        moved++;
+      }
+      store.clear();
+    }
+    showToast("Moved " + moved + " item(s) into your account");
   } catch (err) {
     console.error(err);
-    showToast("Couldn't move all local quotes — they're still safe on this device.", {
-      type: "error",
-    });
+    showToast("Couldn't move everything — it's still safe on this device.", { type: "error" });
   }
 }
 
@@ -272,6 +320,7 @@ async function maybeMigrateLocal(user) {
 function enterLogin() {
   hide($("bootLoading"));
   stopStore();
+  currentUser = null;
   allQuotes = [];
   filtered = [];
   loading = false;
@@ -284,11 +333,8 @@ function enterLogin() {
 
 function enterLocalMode() {
   hide($("bootLoading"));
-  stopStore();
+  currentUser = null;
   currentMode = "local";
-  currentStore = localStore;
-  loading = false;
-  renderCount = PAGE_SIZE;
 
   hide($("loginView"));
   hide($("setupView"));
@@ -302,14 +348,14 @@ function enterLocalMode() {
   if (firebaseReady) hide($("localNote"));
   else show($("localNote"));
 
-  currentStore.start(onData);
+  requestAnimationFrame(positionPill);
+  startSpaceStore();
 }
 
 function enterCloudMode(user) {
   hide($("bootLoading"));
-  stopStore();
+  currentUser = user;
   currentMode = "cloud";
-  currentStore = makeCloudStore(user.uid);
 
   hide($("loginView"));
   hide($("setupView"));
@@ -328,14 +374,28 @@ function enterCloudMode(user) {
   }
   show($("userChip"));
 
-  // Show skeletons until the first snapshot arrives (usually instant thanks
-  // to the offline cache; only the very first load may take a moment).
+  requestAnimationFrame(positionPill);
+  startSpaceStore();
+}
+
+// (Re)start the active store for the current mode + space, then render.
+function startSpaceStore() {
+  stopStore();
   allQuotes = [];
   filtered = [];
-  loading = true;
   renderCount = PAGE_SIZE;
-  render();
-
+  const space = SPACES[currentSpace];
+  if (currentMode === "cloud" && currentUser) {
+    currentStore = makeCloudStore(currentUser.uid, space.collection);
+    loading = true;
+    render(); // skeletons until the first snapshot arrives
+  } else if (currentMode === "local") {
+    currentStore = getLocalStore(space.localKey);
+    loading = false;
+  } else {
+    currentStore = null;
+    return; // login screen: nothing to load
+  }
   currentStore.start(onData);
 }
 
@@ -442,6 +502,8 @@ function wireThemeToggle() {
 function populateTagInputs() {
   const addSel = $("quoteTag");
   const shuffleSel = $("shuffleTag");
+  addSel.innerHTML = "";
+  while (shuffleSel.options.length > 1) shuffleSel.remove(1); // keep "All tags"
   for (const tag of TAGS) {
     const o = document.createElement("option");
     o.value = tag;
@@ -454,6 +516,52 @@ function populateTagInputs() {
     o2.textContent = capitalize(tag);
     shuffleSel.appendChild(o2);
   }
+  shuffleSel.value = "all";
+}
+
+// ------------------------------------------------------------
+//  Spaces (nav) — switch between Ponder / Healthy Tips
+// ------------------------------------------------------------
+function applySpaceUI() {
+  const space = SPACES[currentSpace];
+  document.title = space.name;
+  $("quoteText").placeholder = space.placeholder;
+  $("addBtn").textContent = space.addLabel;
+  document.querySelectorAll(".space-tab").forEach((t) =>
+    t.classList.toggle("active", t.dataset.space === currentSpace)
+  );
+  positionPill();
+}
+
+// Slide the highlight pill onto the active tab (measured, so it animates).
+function positionPill() {
+  const spaces = document.querySelector(".spaces");
+  const pill = spaces && spaces.querySelector(".space-pill");
+  const active = spaces && spaces.querySelector(".space-tab.active");
+  if (!spaces || !pill || !active || !active.offsetWidth) return; // hidden / not laid out
+  pill.style.transform = "translateX(" + (active.offsetLeft - spaces.clientLeft) + "px)";
+  pill.style.width = active.offsetWidth + "px";
+  // Enable the slide only after the first (snap) placement, so it doesn't
+  // animate in from the left on page load.
+  if (!spaces.classList.contains("anim")) {
+    requestAnimationFrame(() => requestAnimationFrame(() => spaces.classList.add("anim")));
+  }
+}
+
+function switchSpace(key) {
+  if (!SPACES[key] || key === currentSpace) return;
+  currentSpace = key;
+  try { localStorage.setItem("active_space", key); } catch (e) {}
+  TAGS = SPACES[key].tags;
+  DEFAULT_TAG = SPACES[key].defaultTag;
+  // reset per-space view state
+  searchTerm = "";
+  $("searchInput").value = "";
+  sortOrder = "desc";
+  $("sortBy").value = "desc";
+  populateTagInputs();
+  applySpaceUI();
+  startSpaceStore();
 }
 
 // ------------------------------------------------------------
@@ -486,6 +594,12 @@ function wireAppUI() {
 
   $("exportBtn").addEventListener("click", exportPdf);
   $("dupBtn").addEventListener("click", scanForDuplicates);
+
+  // Nav: switch between spaces (Ponder / Healthy Tips)
+  document.querySelectorAll(".space-tab").forEach((t) => {
+    t.addEventListener("click", () => switchSpace(t.dataset.space));
+  });
+  window.addEventListener("resize", debounce(positionPill, 150), { passive: true });
 
   // Shuffle (random one-at-a-time) view
   $("shuffleBtn").addEventListener("click", openShuffle);
@@ -990,7 +1104,7 @@ function render() {
     list.replaceChildren();
     domShown = 0;
     $("countLabel").textContent = "";
-    setEmpty("📝", "Nothing here yet.", "Add your first quote or thought above ☝️");
+    setEmpty("📝", SPACES[currentSpace].emptyTitle, SPACES[currentSpace].emptySub);
     return;
   }
   if (total === 0) {
@@ -1204,7 +1318,7 @@ async function exportPdf() {
 
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(20);
-    pdf.text("Ponder — Quotes & Thoughts", margin, y);
+    pdf.text(SPACES[currentSpace].pdfTitle, margin, y);
     y += 22;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
@@ -1258,7 +1372,7 @@ async function exportPdf() {
     }
 
     const stamp = new Date().toISOString().slice(0, 10);
-    pdf.save("ponder-backup-" + stamp + ".pdf");
+    pdf.save(SPACES[currentSpace].pdfFile + "-" + stamp + ".pdf");
     showToast("PDF downloaded (" + allQuotes.length + " entries)");
   } catch (err) {
     console.error(err);

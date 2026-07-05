@@ -9,13 +9,13 @@
   <meta name="theme-color" content="#0f0f0f" />
   <!-- App version: bumped every deploy (see bump-version.sh). The app polls
        version.json and offers a reload when this no longer matches. -->
-  <meta name="app-version" content="3" />
+  <meta name="app-version" content="5" />
   <meta name="description" content="Ponder — a fast, private place to keep quotes and thoughts, backed up." />
   <title>Ponder</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   <!-- Bump ?v= on every deploy so browsers/CDN fetch fresh CSS & JS (avoids
        a new page loading stale cached assets). -->
-  <link rel="stylesheet" href="./styles.css?v=3" />
+  <link rel="stylesheet" href="./styles.css?v=5" />
   <!-- Set theme before paint to avoid a flash. Default: dark -->
   <script>
     (function () {
@@ -40,10 +40,11 @@
   <!-- ================= HEADER ================= -->
   <header class="topbar" id="topbar" hidden>
     <div class="topbar-inner">
-      <div class="brand">
-        <span class="brand-mark">❝</span>
-        <span class="brand-name">Ponder</span>
-      </div>
+      <nav class="spaces" aria-label="Sections">
+        <span class="space-pill" aria-hidden="true"></span>
+        <button class="space-tab active" type="button" data-space="ponder">❝ Ponder</button>
+        <button class="space-tab" type="button" data-space="health">🌿 Healthy Tips</button>
+      </nav>
       <div class="topbar-actions">
         <label class="theme-switch" for="themeCheckbox" title="Toggle light / dark mode">
           <input type="checkbox" id="themeCheckbox" aria-label="Toggle light and dark mode" />
@@ -61,7 +62,7 @@
               <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.94l3.02 2.34C4.68 5.16 6.66 3.58 9 3.58z"/>
             </svg>
           </span>
-          Sign in with Google
+          Sign in<span class="sync-long"> with Google</span>
         </button>
         <div class="user-chip local-chip" id="localChip" hidden>
           <span class="user-name">🖥️ This device</span>
@@ -109,7 +110,7 @@
     <!-- ================= APP ================= -->
     <section id="appView" hidden>
       <div id="localNote" class="local-note" hidden>
-        📵 <strong>Local-only mode.</strong> Your quotes &amp; thoughts are saved on this device only.
+        📵 <strong>Local-only mode.</strong> Your notes are saved on this device only.
         To turn on Google login &amp; sync, do the one-time Firebase setup — it works on localhost, no deploy needed. See <code>README.md</code>.
       </div>
 
@@ -183,6 +184,6 @@
     <p id="overlayText">Working…</p>
   </div>
 
-  <script type="module" src="./app.js?v=3"></script>
+  <script type="module" src="./app.js?v=5"></script>
 </body>
 </html>

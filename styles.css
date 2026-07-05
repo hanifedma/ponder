@@ -132,12 +132,28 @@ button, input, select, textarea { font-family: inherit; }
   justify-content: space-between;
   gap: 12px;
 }
-.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 16px; }
-.brand-mark {
-  color: var(--accent); font-size: 20px; line-height: 1;
-  transform: translateY(1px);
+/* Space nav — sliding segmented control (animated pill, like the theme slider).
+   The pill's position/width is set by JS from the active tab (--pill-x/--pill-w). */
+.spaces {
+  position: relative; display: inline-flex;
+  padding: 3px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
 }
-.brand-name { letter-spacing: 0.2px; }
+.space-pill { /* the highlight; JS sets transform/width so the transition fires */
+  position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; width: 0;
+  border-radius: 8px; background: var(--surface); box-shadow: var(--shadow-sm);
+}
+.spaces.anim .space-pill { transition: transform 2s ease, width 2s ease; }
+.space-tab {
+  position: relative; z-index: 1; flex: 0 0 auto;
+  border: none; background: transparent; color: var(--muted);
+  font-weight: 600; font-size: 13px; padding: 7px 14px; border-radius: 8px;
+  cursor: pointer; white-space: nowrap; text-align: center;
+  transition: color .3s ease;
+}
+.space-tab:hover { color: var(--text); }
+.space-tab.active { color: var(--text); }
 
 .topbar-actions { display: flex; align-items: center; gap: 9px; }
 
@@ -429,6 +445,9 @@ button, input, select, textarea { font-family: inherit; }
 .badge[data-tag="very important"] { color: var(--tag-very); background: rgba(244,63,94,.13); border-color: rgba(244,63,94,.32); }
 .badge[data-tag="pretty important"] { color: var(--tag-pretty); background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.34); }
 .badge[data-tag="interesting"] { color: var(--tag-interesting); background: rgba(168,85,247,.13); border-color: rgba(168,85,247,.32); }
+/* Healthy Tips tags */
+.badge[data-tag="pretty sure"] { color: var(--tag-extra); background: rgba(20,184,166,.13); border-color: rgba(20,184,166,.32); }
+.badge[data-tag="not really"] { color: var(--tag-very); background: rgba(244,63,94,.13); border-color: rgba(244,63,94,.32); }
 
 .del-btn {
   position: absolute; top: 13px; right: 12px;
@@ -648,6 +667,15 @@ code {
 }
 
 /* ---------------- Responsive ---------------- */
+/* Small screens: nav gets its own full-width row above the actions. */
+@media (max-width: 560px) {
+  .topbar-inner { flex-wrap: wrap; row-gap: 10px; }
+  .spaces { order: 1; width: 100%; }
+  .space-tab { flex: 1 1 0; } /* equal, full-width tabs on small screens */
+  .topbar-actions { order: 2; width: 100%; justify-content: flex-end; flex-wrap: wrap; }
+  .sync-long { display: none; } /* "Sign in" instead of "Sign in with Google" */
+}
+
 @media (max-width: 520px) {
   .page { padding: 16px 14px 90px; }
   .add-row .select, .filter-select { flex: 1 1 100%; }
