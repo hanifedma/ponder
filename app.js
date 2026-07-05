@@ -1576,3 +1576,40 @@ boot().catch((err) => {
     console.error(e);
   }
 });
+
+// ------------------------------------------------------------
+//  Auto-update: notice when a newer version has been deployed
+//  and offer to reload — so already-open tabs update quickly.
+// ------------------------------------------------------------
+const RUNNING_VERSION = (document.querySelector('meta[name="app-version"]') || {}).content || "";
+let updatePrompted = false;
+
+async function checkForUpdate() {
+  if (!RUNNING_VERSION || updatePrompted) return;
+  try {
+    // Unique query + no-store bypasses browser and CDN caches for a true check.
+    const res = await fetch("version.json?_=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const server = String(data.version || "");
+    if (server && server !== RUNNING_VERSION) {
+      updatePrompted = true;
+      showToast("A new version of Ponder is available.", {
+        actionLabel: "Reload",
+        duration: 24 * 60 * 60 * 1000, // stay until they act
+        onAction: () => location.replace(location.pathname + "?v=" + encodeURIComponent(server)),
+      });
+    }
+  } catch (e) {
+    /* offline or version.json missing — ignore */
+  }
+}
+
+if (RUNNING_VERSION) {
+  checkForUpdate(); // catches a stale page that loaded from cache
+  setInterval(checkForUpdate, 60000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) checkForUpdate();
+  });
+  window.addEventListener("focus", checkForUpdate);
+}

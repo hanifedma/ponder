@@ -7,10 +7,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="dark light" />
   <meta name="theme-color" content="#0f0f0f" />
+  <!-- App version: bumped every deploy (see bump-version.sh). The app polls
+       version.json and offers a reload when this no longer matches. -->
+  <meta name="app-version" content="3" />
   <meta name="description" content="Ponder — a fast, private place to keep quotes and thoughts, backed up." />
   <title>Ponder</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-  <link rel="stylesheet" href="./styles.css" />
+  <!-- Bump ?v= on every deploy so browsers/CDN fetch fresh CSS & JS (avoids
+       a new page loading stale cached assets). -->
+  <link rel="stylesheet" href="./styles.css?v=3" />
   <!-- Set theme before paint to avoid a flash. Default: dark -->
   <script>
     (function () {
@@ -178,6 +183,6 @@
     <p id="overlayText">Working…</p>
   </div>
 
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=3"></script>
 </body>
 </html>
