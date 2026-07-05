@@ -1425,13 +1425,22 @@ async function exportPdf() {
   }
 }
 
-// Load an image cross-origin and return {dataUrl,w,h} for embedding in the PDF,
-// or null if it can't be read (host doesn't allow CORS / error / timeout).
+// Get an image as {dataUrl,w,h} for the PDF, or null. Tries a direct CORS read
+// first (fast — works for hosts like YouTube), then falls back to a CORS-enabling
+// image proxy so images from CDNs that don't send CORS headers still embed.
 function loadThumb(url) {
+  return loadImageData(url).then((t) => t || loadImageData(wsrvProxy(url)));
+}
+
+function wsrvProxy(url) {
+  return "https://wsrv.nl/?url=" + encodeURIComponent(url) + "&output=jpg&w=800";
+}
+
+function loadImageData(url) {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    const timer = setTimeout(() => resolve(null), 8000);
+    const timer = setTimeout(() => resolve(null), 9000);
     img.onload = () => {
       clearTimeout(timer);
       try {
