@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <title>Page not found · Ponder</title>
+  <link rel="icon" type="image/svg+xml" href="/ponder/favicon.svg" />
+  <!-- Match the app: dark by default, but honor the theme the user picked. -->
+  <script>
+    try { document.documentElement.setAttribute("data-theme", localStorage.getItem("theme") || "dark"); }
+    catch (e) { document.documentElement.setAttribute("data-theme", "dark"); }
+  </script>
+  <style>
+    :root, :root[data-theme="dark"] {
+      --bg: #0f0f0f; --surface: #1a1a1a; --border: #333; --text: #f0f0f0;
+      --muted: #a6a6a6; --accent: #22c55e; --accent-hover: #4ade80; --contrast: #052e16;
+    }
+    :root[data-theme="light"] {
+      --bg: #fff; --surface: #fff; --border: #e5e7eb; --text: #1a1a1a;
+      --muted: #565b64; --accent: #16a34a; --accent-hover: #15803d; --contrast: #fff;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 24px; line-height: 1.6;
+    }
+    .wrap { max-width: 420px; }
+    .mark { font-size: 46px; color: var(--accent); line-height: 1; }
+    .code { font-size: 66px; font-weight: 800; letter-spacing: -2px; margin: 8px 0 2px; }
+    h1 { font-size: 21px; margin: 0 0 8px; letter-spacing: -0.2px; }
+    p { color: var(--muted); margin: 0 0 24px; }
+    .btn {
+      display: inline-block; text-decoration: none;
+      background: var(--accent); color: var(--contrast);
+      font-weight: 600; font-size: 15px;
+      padding: 12px 22px; border-radius: 12px;
+      transition: background .12s ease;
+    }
+    .btn:hover { background: var(--accent-hover); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="mark">❝</div>
+    <div class="code">404</div>
+    <h1>Page not found</h1>
+    <p>This page doesn’t exist, or it may have moved. Let’s get you back.</p>
+    <a class="btn" href="/ponder/">← Back to Ponder</a>
+  </div>
+</body>
+</html>

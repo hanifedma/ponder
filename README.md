@@ -2,17 +2,21 @@
 
 A tiny, fast web app to keep your favourite quotes **and your own thoughts** — private to you, backed up as PDF.
 
-- ✅ **Works immediately** — open it with no login, no setup, and even offline. Quotes are
+- ✅ **Works immediately** — open it with no login, no setup, and even offline. Entries are
   saved **on your device** (local mode). It works the same before *and* after you deploy it.
 - 🔐 **Optional Google sign-in** — when you add Firebase (below), each person sees only their own
-  quotes, synced across devices. Sign in later and it offers to move your on-device quotes into your account.
-- 🏷️ Every entry has a **date added**, a **source** (optional), and one of 5 **tags**:
-  `extraterrestrial`, `try to read this everyday`, `very important`, `pretty important`, `interesting`.
-- 🌙 **Dark / light mode** (defaults to dark).
-- ⚡ **Very light & fast** — no framework, no web fonts, works on low-spec CPUs with no GPU.
-  Firebase is only downloaded if you actually configure it.
-- 📶 **Low-internet friendly** — quotes are cached; reloads are instant even with thousands stored.
-- 📄 **Export all quotes as a PDF** for backup.
+  entries, synced across devices. Sign in later and it offers to move your on-device entries into your account.
+- 🗂️ **Two spaces** in one app — **❝ Ponder** (quotes & thoughts) and **🌿 Healthy Tips** — each with
+  its own database and its own tags. Every entry has a **date added**, an optional **source**, and a **tag**.
+- 🌐 **English / Korean** — one click switches the whole interface (your saved entries are never translated).
+- ▶️ **Inline media** — paste a YouTube / Vimeo / Instagram link or a direct image URL and it becomes a
+  click-to-play preview. The PDF export even embeds the thumbnails.
+- 🔀 **Shuffle** one random entry at a time, and **⧉ Find duplicates** to clean up near-identical notes.
+- 🌙 **Dark / light mode** (defaults to dark), 📱 **installable** (PWA — add to home screen).
+- ⚡ **Very light & fast** — no framework, no web fonts, works on low-spec CPUs with no GPU. The whole
+  app shell is ~27 KB gzipped; Firebase is only downloaded if you actually configure it.
+- 📶 **Low-internet friendly** — entries are cached; reloads are instant even with thousands stored.
+- 📄 **Export everything as a PDF** for backup.
 - 🆓 Runs 100% free: static files on **GitHub Pages** + **Firebase** free tier (which, unlike some
   alternatives, does **not** pause when you don't use it — good for a backup app).
 
@@ -26,9 +30,14 @@ A tiny, fast web app to keep your favourite quotes **and your own thoughts** —
 | File | What it is |
 |------|-----------|
 | `index.html`, `styles.css`, `app.js` | The whole app |
-| `favicon.svg` | The tab icon |
 | `firebase-config.js` | **Paste your Firebase keys here** (only needed for login/sync) |
-| `firestore.rules` | Security rules (copy into Firebase) so users can't see each other's quotes |
+| `firestore.rules` | Security rules (copy into Firebase) so users can't see each other's entries |
+| `favicon.svg`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png` | App / tab / home-screen icons |
+| `site.webmanifest` | PWA manifest (makes the app installable) |
+| `og-image.jpg` | Social share / link-preview image |
+| `404.html` | Friendly, themed "page not found" page |
+| `robots.txt`, `sitemap.xml` | SEO — let search engines index the site |
+| `version.json`, `bump-version.sh` | Auto-update: open tabs notice a new deploy and offer to reload |
 | `serve.py` | Optional local dev server (no-cache, so edits show on refresh) |
 | `README.md` | This file |
 
@@ -102,13 +111,18 @@ Done — open your GitHub Pages URL and sign in. 🎉
 ---
 
 ## Everyday use
-- Type a quote, add a source and pick a tag, hit **Add quote** (or `Ctrl`+`Enter`).
-- **Search** and **filter by tag** to find things fast.
-- **⬇ Export PDF** downloads a backup of every quote.
-- Toggle 🌙 / ☀️ in the top-right for dark / light.
+- Switch between **❝ Ponder** and **🌿 Healthy Tips** with the slider at the top-left.
+- Type an entry, add a source and pick a tag, hit **Add** (or `Ctrl`+`Enter`).
+- Paste a **YouTube / Vimeo / Instagram** link or a direct **image URL** to embed playable media.
+- **Search**, **sort** (newest / oldest / by tag), **🔀 Shuffle**, or **⧉ Find duplicates**.
+- **⬇ Export PDF** downloads a backup of everything in the current space (with media thumbnails).
+- **🌐** toggles English / Korean; **🌙 / ☀️** toggles dark / light.
 
-## Customizing the tags
-Open `app.js` and edit the `TAGS` array near the top. That's the only place to change.
+## Customizing spaces & tags
+Open `app.js` and edit the **`SPACES`** object near the top. Each space defines its `collection`
+(Firestore), `localKey`, and its own `tags`. Add another entry to `SPACES` (and to `SPACE_ORDER`)
+and it appears in the nav automatically. Korean labels for tags live in the `I18N` dictionary
+(the `"tag.<name>"` keys) just below.
 
 ## Free-tier limits (plenty for personal use)
 Firebase's free "Spark" plan gives ~50,000 reads and ~20,000 writes **per day** and 1 GB storage —

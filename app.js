@@ -85,6 +85,170 @@ let currentSpace = "ponder"; // set from localStorage in boot()
 let TAGS = SPACES[currentSpace].tags; // current space's tags (updated on switch)
 let DEFAULT_TAG = SPACES[currentSpace].defaultTag;
 
+// ------------------------------------------------------------
+//  i18n — the whole interface can switch English ⇄ Korean.
+//  Only the UI chrome is translated; your saved quotes/thoughts and
+//  their sources are never touched. (The PDF export stays in English
+//  because the bundled PDF font can't draw Hangul.)
+// ------------------------------------------------------------
+const LANGS = ["en", "ko"];
+let lang = "en"; // set from localStorage in boot()
+
+const I18N = {
+  en: {
+    "tab.ponder": "❝ Ponder", "tab.health": "🌿 Healthy Tips",
+    "space.ponder.name": "Ponder", "space.health.name": "Healthy Tips",
+    "ph.ponder": "Write a quote or a thought…", "ph.health": "Write a healthy tip…",
+    "add.ponder": "Add quote", "add.health": "Add tip",
+    "empty.ponder.title": "Nothing here yet.", "empty.ponder.sub": "Add your first quote or thought above ☝️",
+    "empty.health.title": "No tips yet.", "empty.health.sub": "Add your first healthy tip above ☝️",
+    "theme.title": "Toggle light / dark mode", "theme.light": "Light", "theme.dark": "Dark",
+    "lang.title": "Change language",
+    "signin.short": "Sign in", "signin.long": " with Google", "signout": "Sign out",
+    "signin.setup": "Google sign-in needs a one-time Firebase setup (free, ~5 min — see README.md). It works on localhost too, no deploy needed. Your notes stay on this device until then.",
+    "chip.local": "🖥️ This device",
+    "login.h1": "Your quotes & thoughts.",
+    "login.sub": "Sign in to keep quotes and thoughts only you can see. Fast, private, backed up.",
+    "login.google": "Continue with Google",
+    "login.local": "or use on this device without an account",
+    "err.auth.popupBlocked": "Your browser blocked the sign-in popup. Please allow popups and try again.",
+    "err.auth.cancelled": "Sign-in was cancelled.",
+    "err.auth.network": "No internet connection. You can keep using this device without an account.",
+    "err.auth.domain": "This site's domain isn't authorized in Firebase yet. Add it under Authentication → Settings → Authorized domains.",
+    "err.auth.notAllowed": "Google sign-in isn't enabled in Firebase yet. Enable it under Authentication → Sign-in method.",
+    "err.auth.generic": "Couldn't sign in. Please try again.",
+    "ph.source": "Source (optional: author, book…)", "aria.tag": "Tag",
+    "hint.pre": "Tip: press ", "hint.post": " to add.",
+    "ph.search": "Search…",
+    "sort.newest": "Newest first", "sort.oldest": "Oldest first", "sort.tag": "By tag", "aria.sort": "Sort entries",
+    "btn.shuffle": "🔀 Shuffle", "btn.dup": "⧉ Find duplicates", "btn.export": "⬇ Export PDF",
+    "badge.local": "saved on this device", "badge.offline": "offline · showing saved copy",
+    "count.one": "1 entry", "count.all": "{n} entries", "count.of": "{n} of {m}", "count.showing": " · showing {n}",
+    "empty.nomatch.title": "No matches.", "empty.nomatch.sub": "Try a different search or tag.",
+    "aria.shuffleTag": "Random from tag", "shuffle.all": "All tags", "aria.shuffleClose": "Close shuffle",
+    "shuffle.next": "Next random →", "shuffle.hint": "Tap the card, press Space / →, or swipe for another",
+    "shuffle.empty": "No entries for this tag yet.", "shuffle.needAdd": "Add some entries first.",
+    "err.load": "Couldn't load your data. Check your connection, or that the Firestore security rules are published.",
+    "err.save": "Couldn't save. Please try again.",
+    "deleted": "Deleted", "undo": "Undo", "err.undo": "Couldn't undo.", "err.delete": "Couldn't delete. Please try again.",
+    "migrate.confirm": "You have {n} item(s) saved on this device.\n\nMove them into your account so they sync across devices?",
+    "migrate.moved": "Moved {n} item(s) into your account",
+    "migrate.err": "Couldn't move everything — it's still safe on this device.",
+    "dup.title": "Possible duplicate", "dup.title.plural": "Possible duplicates",
+    "dup.sub": "You already have a similar entry. Add this new one anyway?",
+    "dup.sub.plural": "You already have similar entries. Add this new one anyway?",
+    "dup.match": "{n}% match", "cancel": "Cancel", "dup.addAnyway": "Add anyway",
+    "dup.need2": "You need at least two entries to check for duplicates.",
+    "dup.scanning": "Scanning for duplicates…", "dup.none": "No similar entries found 🎉",
+    "dup.groups": "{g} group(s) of similar entries ({n} items). Delete the ones you don't want to keep.",
+    "done": "Done", "dup.noMore": "No more duplicates 🎉",
+    "pdf.nothing": "You have nothing to export yet.", "pdf.building": "Building your PDF…",
+    "pdf.fetching": "Fetching media…", "pdf.done": "PDF downloaded ({n} entries)",
+    "pdf.err": "Couldn't build the PDF. Please check your connection and try again.",
+    "update.available": "A new version of Ponder is available.", "update.reload": "Reload",
+    "tag.extraterrestrial": "Extraterrestrial", "tag.try to read this everyday": "Try to read this everyday",
+    "tag.very important": "Very important", "tag.pretty important": "Pretty important",
+    "tag.interesting": "Interesting", "tag.pretty sure": "Pretty sure", "tag.not really": "Not really",
+  },
+  ko: {
+    "tab.ponder": "❝ Ponder", "tab.health": "🌿 건강 팁",
+    "space.ponder.name": "Ponder", "space.health.name": "건강 팁",
+    "ph.ponder": "명언이나 생각을 적어보세요…", "ph.health": "건강 팁을 적어보세요…",
+    "add.ponder": "명언 추가", "add.health": "팁 추가",
+    "empty.ponder.title": "아직 아무것도 없어요.", "empty.ponder.sub": "위에서 첫 명언이나 생각을 추가하세요 ☝️",
+    "empty.health.title": "아직 팁이 없어요.", "empty.health.sub": "위에서 첫 건강 팁을 추가하세요 ☝️",
+    "theme.title": "라이트 / 다크 모드 전환", "theme.light": "라이트", "theme.dark": "다크",
+    "lang.title": "언어 변경",
+    "signin.short": "로그인", "signin.long": " (Google)", "signout": "로그아웃",
+    "signin.setup": "Google 로그인을 사용하려면 한 번의 Firebase 설정이 필요합니다 (무료, 약 5분 — README.md 참고). 로컬호스트에서도 작동하며 배포가 필요 없습니다. 그때까지 메모는 이 기기에 저장됩니다.",
+    "chip.local": "🖥️ 이 기기",
+    "login.h1": "나의 명언과 생각.",
+    "login.sub": "나만 볼 수 있는 명언과 생각을 저장하세요. 빠르고, 비공개이며, 백업됩니다.",
+    "login.google": "Google로 계속하기",
+    "login.local": "또는 계정 없이 이 기기에서 사용하기",
+    "err.auth.popupBlocked": "브라우저가 로그인 팝업을 차단했습니다. 팝업을 허용하고 다시 시도해 주세요.",
+    "err.auth.cancelled": "로그인이 취소되었습니다.",
+    "err.auth.network": "인터넷 연결이 없습니다. 계정 없이 이 기기에서 계속 사용할 수 있습니다.",
+    "err.auth.domain": "이 사이트 도메인이 아직 Firebase에 승인되지 않았습니다. Authentication → Settings → Authorized domains 에서 추가하세요.",
+    "err.auth.notAllowed": "Firebase에서 Google 로그인이 아직 활성화되지 않았습니다. Authentication → Sign-in method 에서 활성화하세요.",
+    "err.auth.generic": "로그인하지 못했습니다. 다시 시도해 주세요.",
+    "ph.source": "출처 (선택: 저자, 책…)", "aria.tag": "태그",
+    "hint.pre": "팁: ", "hint.post": " 를 눌러 추가",
+    "ph.search": "검색…",
+    "sort.newest": "최신순", "sort.oldest": "오래된순", "sort.tag": "태그별", "aria.sort": "정렬",
+    "btn.shuffle": "🔀 랜덤", "btn.dup": "⧉ 중복 찾기", "btn.export": "⬇ PDF 내보내기",
+    "badge.local": "이 기기에 저장됨", "badge.offline": "오프라인 · 저장본 표시 중",
+    "count.one": "1개", "count.all": "{n}개", "count.of": "{m}개 중 {n}개", "count.showing": " · {n}개 표시",
+    "empty.nomatch.title": "일치하는 항목이 없어요.", "empty.nomatch.sub": "다른 검색어나 태그로 시도해 보세요.",
+    "aria.shuffleTag": "태그에서 무작위", "shuffle.all": "모든 태그", "aria.shuffleClose": "랜덤 닫기",
+    "shuffle.next": "다음 →", "shuffle.hint": "카드를 탭하거나 Space / → 를 누르거나 스와이프하세요",
+    "shuffle.empty": "이 태그에는 아직 항목이 없어요.", "shuffle.needAdd": "먼저 항목을 추가하세요.",
+    "err.load": "데이터를 불러오지 못했습니다. 연결 상태나 Firestore 보안 규칙 게시 여부를 확인하세요.",
+    "err.save": "저장하지 못했습니다. 다시 시도해 주세요.",
+    "deleted": "삭제됨", "undo": "실행 취소", "err.undo": "실행 취소하지 못했습니다.", "err.delete": "삭제하지 못했습니다. 다시 시도해 주세요.",
+    "migrate.confirm": "이 기기에 {n}개의 항목이 저장되어 있습니다.\n\n계정으로 옮겨 모든 기기에서 동기화하시겠어요?",
+    "migrate.moved": "{n}개의 항목을 계정으로 옮겼습니다",
+    "migrate.err": "일부를 옮기지 못했습니다 — 항목은 이 기기에 그대로 안전합니다.",
+    "dup.title": "중복 가능성", "dup.title.plural": "중복 가능성",
+    "dup.sub": "비슷한 항목이 이미 있습니다. 그래도 추가할까요?",
+    "dup.sub.plural": "비슷한 항목들이 이미 있습니다. 그래도 추가할까요?",
+    "dup.match": "{n}% 일치", "cancel": "취소", "dup.addAnyway": "그래도 추가",
+    "dup.need2": "중복을 확인하려면 항목이 두 개 이상 필요합니다.",
+    "dup.scanning": "중복을 검사하는 중…", "dup.none": "비슷한 항목이 없습니다 🎉",
+    "dup.groups": "비슷한 항목 {g}개 그룹 ({n}개 항목). 남기지 않을 항목을 삭제하세요.",
+    "done": "완료", "dup.noMore": "더 이상 중복이 없습니다 🎉",
+    "pdf.nothing": "아직 내보낼 항목이 없습니다.", "pdf.building": "PDF를 만드는 중…",
+    "pdf.fetching": "미디어를 가져오는 중…", "pdf.done": "PDF를 다운로드했습니다 ({n}개 항목)",
+    "pdf.err": "PDF를 만들지 못했습니다. 연결을 확인하고 다시 시도해 주세요.",
+    "update.available": "Ponder의 새 버전이 있습니다.", "update.reload": "새로고침",
+    "tag.extraterrestrial": "외계", "tag.try to read this everyday": "매일 읽기",
+    "tag.very important": "매우 중요", "tag.pretty important": "꽤 중요",
+    "tag.interesting": "흥미로움", "tag.pretty sure": "확실함", "tag.not really": "글쎄",
+  },
+};
+
+// Look up a translation; falls back to English, then to the given fallback/key.
+function t(key, fallback) {
+  const s = (I18N[lang] && I18N[lang][key]) != null ? I18N[lang][key] : (I18N.en && I18N.en[key]);
+  return s != null ? s : (fallback != null ? fallback : key);
+}
+// Same, but fills {tokens} — e.g. tf("count.of", { n: 3, m: 10 }).
+function tf(key, params) {
+  let s = t(key);
+  for (const k in params) s = s.split("{" + k + "}").join(params[k]);
+  return s;
+}
+// Display label for a tag (English capitalized, or its Korean translation).
+// The stored value is always the raw English tag — only the label changes.
+function tagLabel(tag) {
+  return t("tag." + (tag || ""), capitalize(tag || ""));
+}
+
+// Switch the whole UI to `l`, persist it, and refresh every translated string.
+function applyLang(l) {
+  lang = LANGS.indexOf(l) >= 0 ? l : "en";
+  try { localStorage.setItem("lang", lang); } catch (e) {}
+  document.documentElement.setAttribute("lang", lang);
+
+  // Static markup tagged with data-i18n* attributes.
+  document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
+
+  // Dynamic (JS-generated) strings.
+  const lb = $("langLabel");
+  if (lb) lb.textContent = lang === "ko" ? "한국어" : "EN";
+  populateTagInputs();
+  applySpaceUI();
+  if (currentMode) applyFilter(); // re-render list with translated badges/labels/count
+  const sv = $("shuffleView");
+  if (sv && !sv.hidden && shuffleCurrentId) {
+    const q = allQuotes.find((x) => x.id === shuffleCurrentId);
+    if (q) renderShuffleCard(q);
+  }
+}
+
 const PAGE_SIZE = 50; // how many cards to add to the DOM at a time
 const SIMILAR_THRESHOLD = 0.6; // 0..1 word-overlap that counts as "similar"
 
@@ -123,15 +287,16 @@ async function boot() {
   try {
     const saved = localStorage.getItem("active_space");
     if (saved && SPACES[saved]) currentSpace = saved;
+    const savedLang = localStorage.getItem("lang");
+    if (savedLang && LANGS.indexOf(savedLang) >= 0) lang = savedLang;
   } catch (e) {}
   TAGS = SPACES[currentSpace].tags;
   DEFAULT_TAG = SPACES[currentSpace].defaultTag;
 
   wireThemeToggle();
-  populateTagInputs();
   wireAppUI();
   wireAuthButtons();
-  applySpaceUI();
+  applyLang(lang); // translates static UI + populates tags + applies space UI
 
   firebaseReady = false;
   if (isConfigured()) {
@@ -195,10 +360,7 @@ function makeCloudStore(uid, coll) {
         },
         (err) => {
           console.error("Firestore error:", err);
-          showToast(
-            "Couldn't load your data. Check your connection, or that the Firestore security rules are published.",
-            { type: "error", duration: 7000 }
-          );
+          showToast(t("err.load"), { type: "error", duration: 7000 });
           onData(allQuotes, { fromCache: true, local: false, error: true });
         }
       );
@@ -289,9 +451,7 @@ async function maybeMigrateLocal(user) {
     .filter((s) => getLocalStore(s.localKey).getAll().length);
   const total = withLocal.reduce((n, s) => n + getLocalStore(s.localKey).getAll().length, 0);
   if (!total) return;
-  const ok = confirm(
-    "You have " + total + " item(s) saved on this device.\n\nMove them into your account so they sync across devices?"
-  );
+  const ok = confirm(tf("migrate.confirm", { n: total }));
   if (!ok) return;
   try {
     let moved = 0;
@@ -307,10 +467,10 @@ async function maybeMigrateLocal(user) {
       }
       store.clear();
     }
-    showToast("Moved " + moved + " item(s) into your account");
+    showToast(tf("migrate.moved", { n: moved }));
   } catch (err) {
     console.error(err);
-    showToast("Couldn't move everything — it's still safe on this device.", { type: "error" });
+    showToast(t("migrate.err"), { type: "error" });
   }
 }
 
@@ -409,10 +569,10 @@ function onData(items, meta) {
   allQuotes = items;
   const badge = $("offlineBadge");
   if (meta && meta.local) {
-    badge.textContent = "saved on this device";
+    badge.textContent = t("badge.local");
     show(badge);
   } else if (meta && meta.fromCache && !navigator.onLine) {
-    badge.textContent = "offline · showing saved copy";
+    badge.textContent = t("badge.offline");
     show(badge);
   } else {
     hide(badge);
@@ -434,10 +594,7 @@ function wireAuthButtons() {
 
 async function googleSignIn() {
   if (!firebaseReady) {
-    showToast(
-      "Google sign-in needs a one-time Firebase setup (free, ~5 min — see README.md). It works on localhost too, no deploy needed. Your notes stay on this device until then.",
-      { duration: 8000 }
-    );
+    showToast(t("signin.setup"), { duration: 8000 });
     return;
   }
   hide($("loginError"));
@@ -452,17 +609,13 @@ async function googleSignIn() {
 
 function friendlyAuthError(err) {
   const code = err && err.code ? err.code : "";
-  if (code === "auth/popup-blocked")
-    return "Your browser blocked the sign-in popup. Please allow popups and try again.";
+  if (code === "auth/popup-blocked") return t("err.auth.popupBlocked");
   if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request")
-    return "Sign-in was cancelled.";
-  if (code === "auth/network-request-failed")
-    return "No internet connection. You can keep using this device without an account.";
-  if (code === "auth/unauthorized-domain")
-    return "This site's domain isn't authorized in Firebase yet. Add it under Authentication → Settings → Authorized domains.";
-  if (code === "auth/operation-not-allowed")
-    return "Google sign-in isn't enabled in Firebase yet. Enable it under Authentication → Sign-in method.";
-  return "Couldn't sign in. Please try again.";
+    return t("err.auth.cancelled");
+  if (code === "auth/network-request-failed") return t("err.auth.network");
+  if (code === "auth/unauthorized-domain") return t("err.auth.domain");
+  if (code === "auth/operation-not-allowed") return t("err.auth.notAllowed");
+  return t("err.auth.generic");
 }
 
 function showLoginError(msg) {
@@ -507,13 +660,13 @@ function populateTagInputs() {
   for (const tag of TAGS) {
     const o = document.createElement("option");
     o.value = tag;
-    o.textContent = capitalize(tag);
+    o.textContent = tagLabel(tag);
     if (tag === DEFAULT_TAG) o.selected = true;
     addSel.appendChild(o);
 
     const o2 = document.createElement("option");
     o2.value = tag;
-    o2.textContent = capitalize(tag);
+    o2.textContent = tagLabel(tag);
     shuffleSel.appendChild(o2);
   }
   shuffleSel.value = "all";
@@ -524,9 +677,10 @@ function populateTagInputs() {
 // ------------------------------------------------------------
 function applySpaceUI() {
   const space = SPACES[currentSpace];
-  document.title = space.name;
-  $("quoteText").placeholder = space.placeholder;
-  $("addBtn").textContent = space.addLabel;
+  const nm = t("space." + currentSpace + ".name", space.name);
+  document.title = nm === "Ponder" ? "Ponder — Quotes & Thoughts" : nm + " · Ponder";
+  $("quoteText").placeholder = t("ph." + currentSpace, space.placeholder);
+  $("addBtn").textContent = t("add." + currentSpace, space.addLabel);
   document.querySelectorAll(".space-tab").forEach((t) =>
     t.classList.toggle("active", t.dataset.space === currentSpace)
   );
@@ -603,6 +757,10 @@ function wireAppUI() {
   $("exportBtn").addEventListener("click", exportPdf);
   $("dupBtn").addEventListener("click", scanForDuplicates);
 
+  // Language toggle (English ⇄ Korean) — only the UI, never saved content.
+  const langBtn = $("langBtn");
+  if (langBtn) langBtn.addEventListener("click", () => applyLang(lang === "en" ? "ko" : "en"));
+
   // Nav: switch between spaces (Ponder / Healthy Tips)
   document.querySelectorAll(".space-tab").forEach((t) => {
     t.addEventListener("click", () => switchSpace(t.dataset.space));
@@ -669,7 +827,7 @@ async function onAddSubmit(e) {
     $("quoteText").focus();
   } catch (err) {
     console.error(err);
-    showToast("Couldn't save. Please try again.", { type: "error" });
+    showToast(t("err.save"), { type: "error" });
   } finally {
     addBtn.disabled = false;
   }
@@ -688,21 +846,21 @@ async function onDelete(id) {
   };
   try {
     await currentStore.remove(id);
-    showToast("Deleted", {
-      actionLabel: "Undo",
+    showToast(t("deleted"), {
+      actionLabel: t("undo"),
       duration: 6000,
       onAction: async () => {
         try {
           await currentStore.add(backup);
         } catch (err) {
           console.error(err);
-          showToast("Couldn't undo.", { type: "error" });
+          showToast(t("err.undo"), { type: "error" });
         }
       },
     });
   } catch (err) {
     console.error(err);
-    showToast("Couldn't delete. Please try again.", { type: "error" });
+    showToast(t("err.delete"), { type: "error" });
   }
 }
 
@@ -787,15 +945,12 @@ function confirmDuplicate(matches) {
 
     const h = document.createElement("h2");
     h.className = "modal-title";
-    h.textContent = matches.length > 1 ? "Possible duplicates" : "Possible duplicate";
+    h.textContent = matches.length > 1 ? t("dup.title.plural") : t("dup.title");
     card.appendChild(h);
 
     const sub = document.createElement("p");
     sub.className = "modal-sub";
-    sub.textContent =
-      "You already have " +
-      (matches.length > 1 ? "similar entries" : "a similar entry") +
-      ". Add this new one anyway?";
+    sub.textContent = matches.length > 1 ? t("dup.sub.plural") : t("dup.sub");
     card.appendChild(sub);
 
     const list = document.createElement("div");
@@ -815,7 +970,7 @@ function confirmDuplicate(matches) {
       const badge = document.createElement("span");
       badge.className = "badge";
       badge.setAttribute("data-tag", m.q.tag || "");
-      badge.textContent = capitalize(m.q.tag || "");
+      badge.textContent = tagLabel(m.q.tag);
       meta.appendChild(badge);
 
       if (m.q.source) {
@@ -827,7 +982,7 @@ function confirmDuplicate(matches) {
 
       const match = document.createElement("span");
       match.className = "modal-match";
-      match.textContent = Math.round(m.score * 100) + "% match";
+      match.textContent = tf("dup.match", { n: Math.round(m.score * 100) });
       meta.appendChild(match);
 
       item.appendChild(meta);
@@ -840,11 +995,11 @@ function confirmDuplicate(matches) {
     const cancel = document.createElement("button");
     cancel.className = "btn btn-ghost";
     cancel.type = "button";
-    cancel.textContent = "Cancel";
+    cancel.textContent = t("cancel");
     const addAnyway = document.createElement("button");
     addAnyway.className = "btn btn-primary";
     addAnyway.type = "button";
-    addAnyway.textContent = "Add anyway";
+    addAnyway.textContent = t("dup.addAnyway");
     actions.appendChild(cancel);
     actions.appendChild(addAnyway);
     card.appendChild(actions);
@@ -877,12 +1032,12 @@ function confirmDuplicate(matches) {
 // Scan the whole collection and group entries that are similar to each other.
 async function scanForDuplicates() {
   if (allQuotes.length < 2) {
-    showToast("You need at least two entries to check for duplicates.");
+    showToast(t("dup.need2"));
     return;
   }
   const big = allQuotes.length > 800;
   if (big) {
-    setBusy(true, "Scanning for duplicates…");
+    setBusy(true, t("dup.scanning"));
     await new Promise((r) => setTimeout(r, 30)); // let the overlay paint first
   }
   let groups;
@@ -892,7 +1047,7 @@ async function scanForDuplicates() {
     if (big) setBusy(false);
   }
   if (!groups.length) {
-    showToast("No similar entries found 🎉");
+    showToast(t("dup.none"));
     return;
   }
   openDuplicatesModal(groups);
@@ -945,15 +1100,13 @@ function openDuplicatesModal(groups) {
 
   const h = document.createElement("h2");
   h.className = "modal-title";
-  h.textContent = "Possible duplicates";
+  h.textContent = t("dup.title.plural");
   card.appendChild(h);
 
   const total = groups.reduce((s, g) => s + g.length, 0);
   const sub = document.createElement("p");
   sub.className = "modal-sub";
-  sub.textContent =
-    groups.length + (groups.length > 1 ? " groups" : " group") +
-    " of similar entries (" + total + " items). Delete the ones you don't want to keep.";
+  sub.textContent = tf("dup.groups", { g: groups.length, n: total });
   card.appendChild(sub);
 
   const wrap = document.createElement("div");
@@ -971,7 +1124,7 @@ function openDuplicatesModal(groups) {
   const done = document.createElement("button");
   done.className = "btn btn-primary";
   done.type = "button";
-  done.textContent = "Done";
+  done.textContent = t("done");
   actions.appendChild(done);
   card.appendChild(actions);
 
@@ -1004,7 +1157,7 @@ function buildDupItem(q) {
   const badge = document.createElement("span");
   badge.className = "badge";
   badge.setAttribute("data-tag", q.tag || "");
-  badge.textContent = capitalize(q.tag || "");
+  badge.textContent = tagLabel(q.tag);
   meta.appendChild(badge);
   if (q.source) {
     const s = document.createElement("span");
@@ -1039,12 +1192,12 @@ async function dupDelete(q, itemEl) {
   const backup = { text: q.text, source: q.source, tag: q.tag, createdAt: tsToMillis(q.createdAt) };
   try {
     await currentStore.remove(q.id);
-    showToast("Deleted", {
-      actionLabel: "Undo",
+    showToast(t("deleted"), {
+      actionLabel: t("undo"),
       duration: 6000,
       onAction: async () => {
         try { await currentStore.add(backup); }
-        catch (err) { console.error(err); showToast("Couldn't undo.", { type: "error" }); }
+        catch (err) { console.error(err); showToast(t("err.undo"), { type: "error" }); }
       },
     });
     itemEl.remove();
@@ -1052,11 +1205,11 @@ async function dupDelete(q, itemEl) {
     if (groupEl && groupEl.querySelectorAll(".dup-item").length < 2) groupEl.remove();
     if (backEl && backEl.querySelectorAll(".dup-group").length === 0) {
       backEl.remove();
-      showToast("No more duplicates 🎉");
+      showToast(t("dup.noMore"));
     }
   } catch (err) {
     console.error(err);
-    showToast("Couldn't delete. Please try again.", { type: "error" });
+    showToast(t("err.delete"), { type: "error" });
   }
 }
 
@@ -1118,14 +1271,15 @@ function render() {
     list.replaceChildren();
     domShown = 0;
     $("countLabel").textContent = "";
-    setEmpty("📝", SPACES[currentSpace].emptyTitle, SPACES[currentSpace].emptySub);
+    setEmpty("📝", t("empty." + currentSpace + ".title", SPACES[currentSpace].emptyTitle),
+             t("empty." + currentSpace + ".sub", SPACES[currentSpace].emptySub));
     return;
   }
   if (total === 0) {
     list.replaceChildren();
     domShown = 0;
-    $("countLabel").textContent = "0 of " + allQuotes.length;
-    setEmpty("🔎", "No matches.", "Try a different search or tag.");
+    $("countLabel").textContent = tf("count.of", { n: 0, m: allQuotes.length });
+    setEmpty("🔎", t("empty.nomatch.title"), t("empty.nomatch.sub"));
     return;
   }
 
@@ -1156,11 +1310,11 @@ function appendMore() {
 }
 
 function updateCount(total, shown) {
-  $("countLabel").textContent =
-    (total === allQuotes.length
-      ? total + (total === 1 ? " entry" : " entries")
-      : total + " of " + allQuotes.length) +
-    (shown < total ? " · showing " + shown : "");
+  const base =
+    total === allQuotes.length
+      ? (total === 1 ? t("count.one") : tf("count.all", { n: total }))
+      : tf("count.of", { n: total, m: allQuotes.length });
+  $("countLabel").textContent = base + (shown < total ? tf("count.showing", { n: shown }) : "");
 }
 
 // Keep appending while the sentinel sits within the prefetch zone.
@@ -1226,7 +1380,7 @@ function renderCard(q) {
   const badge = document.createElement("span");
   badge.className = "badge";
   badge.setAttribute("data-tag", q.tag || "");
-  badge.textContent = capitalize(q.tag || "");
+  badge.textContent = tagLabel(q.tag);
   foot.appendChild(badge);
 
   if (q.source) {
@@ -1315,10 +1469,10 @@ function showToast(message, opts) {
 // ------------------------------------------------------------
 async function exportPdf() {
   if (allQuotes.length === 0) {
-    showToast("You have nothing to export yet.");
+    showToast(t("pdf.nothing"));
     return;
   }
-  setBusy(true, "Building your PDF…");
+  setBusy(true, t("pdf.building"));
   try {
     // Entries in the current sort order, each with its detected media.
     const entries = allQuotes
@@ -1333,10 +1487,10 @@ async function exportPdf() {
     for (const it of entries) for (const e of it.media) { const u = thumbUrl(e); if (u) urls.add(u); }
     const thumbs = new Map();
     if (urls.size) {
-      setBusy(true, "Fetching media…");
+      setBusy(true, t("pdf.fetching"));
       await Promise.all([...urls].map(async (u) => thumbs.set(u, await loadThumb(u))));
     }
-    setBusy(true, "Building your PDF…");
+    setBusy(true, t("pdf.building"));
 
     const mod = await import("https://cdn.jsdelivr.net/npm/jspdf@2.5.2/+esm");
     const jsPDF = mod.jsPDF || (mod.default && mod.default.jsPDF) || mod.default;
@@ -1414,12 +1568,10 @@ async function exportPdf() {
 
     const stamp = new Date().toISOString().slice(0, 10);
     pdf.save(SPACES[currentSpace].pdfFile + "-" + stamp + ".pdf");
-    showToast("PDF downloaded (" + entries.length + " entries)");
+    showToast(tf("pdf.done", { n: entries.length }));
   } catch (err) {
     console.error(err);
-    showToast("Couldn't build the PDF. Please check your connection and try again.", {
-      type: "error",
-    });
+    showToast(t("pdf.err"), { type: "error" });
   } finally {
     setBusy(false);
   }
@@ -1477,7 +1629,7 @@ function setBusy(on, text) {
 // ------------------------------------------------------------
 function openShuffle() {
   if (!allQuotes.length) {
-    showToast("Add some entries first.");
+    showToast(t("shuffle.needAdd"));
     return;
   }
   shuffleCurrentId = null;
@@ -1531,7 +1683,7 @@ function renderShuffleCard(q) {
   if (!q) {
     const empty = document.createElement("div");
     empty.className = "shuffle-empty";
-    empty.textContent = "No entries for this tag yet.";
+    empty.textContent = t("shuffle.empty");
     stage.replaceChildren(empty);
     return;
   }
@@ -1558,7 +1710,7 @@ function renderShuffleCard(q) {
   const badge = document.createElement("span");
   badge.className = "badge";
   badge.setAttribute("data-tag", q.tag || "");
-  badge.textContent = capitalize(q.tag || "");
+  badge.textContent = tagLabel(q.tag);
   meta.appendChild(badge);
   if (q.source) {
     const s = document.createElement("span");
@@ -1786,8 +1938,8 @@ async function checkForUpdate() {
     const server = String(data.version || "");
     if (server && server !== RUNNING_VERSION) {
       updatePrompted = true;
-      showToast("A new version of Ponder is available.", {
-        actionLabel: "Reload",
+      showToast(t("update.available"), {
+        actionLabel: t("update.reload"),
         duration: 24 * 60 * 60 * 1000, // stay until they act
         onAction: () => location.replace(location.pathname + "?v=" + encodeURIComponent(server)),
       });
